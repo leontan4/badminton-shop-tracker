@@ -1,0 +1,38 @@
+services:
+  db:
+    image: postgres:16
+    container_name: badminton-db
+    environment:
+      POSTGRES_USER: badminton
+      POSTGRES_PASSWORD: badminton
+      POSTGRES_DB: badminton_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - badminton_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U badminton -d badminton_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build: ./backend
+    container_name: badminton-backend
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://badminton:badminton@db:5432/badminton_db
+    env_file:
+      - path: .env
+        required: false
+      
+    ports:
+      - "8000:8000"
+    command: >
+      sh -c "uv run python -m app.seed &&
+             uv run uvicorn app.main:app --host 0.0.0.0 --port 8000"
+
+volumes:
+  badminton_pgdata:
