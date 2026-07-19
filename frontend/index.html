@@ -40,6 +40,8 @@
         <span style="padding:8px 10px; background:var(--line); border-radius:6px; font-size:14px;">+1</span>
         <input id="newCustPhone" placeholder="6519557275" style="flex:1;">
       </div>
+      <!-- TODO: international support -- add a country dropdown here once
+           the shop has non-US/WhatsApp-only customers to support. -->
       <div class="row" style="margin-top:10px;">
         <button onclick="createCustomer()">Save Customer</button>
         <button class="secondary" onclick="cancelNewCustomer()">Cancel</button>
@@ -65,10 +67,15 @@
   <!-- RIGHT: Order queue -->
   <div class="panel">
     <div class="row" style="justify-content: space-between;">
-      <h2 style="margin:0;">Active Orders</h2>
-      <button class="ghost" style="padding:4px 10px; font-size:11px;" onclick="toggleHistory()">History</button>
+      <h2 id="queueTitle" style="margin:0;">Active Orders</h2>
+      <div class="row" style="gap:6px;">
+        <button class="ghost" style="padding:4px 10px; font-size:11px;" onclick="showView('active')">Active</button>
+        <button class="ghost" style="padding:4px 10px; font-size:11px;" onclick="showView('summary')">Summary</button>
+        <button class="ghost" style="padding:4px 10px; font-size:11px;" onclick="showView('history')">History</button>
+      </div>
     </div>
     <div id="orderQueue"><div class="empty">Loading...</div></div>
+    <div id="orderStats" style="display:none; margin-top:16px; border-top:1px solid var(--line); padding-top:16px;"></div>
     <div id="orderHistory" style="display:none; margin-top:16px; border-top:1px solid var(--line); padding-top:16px;"></div>
   </div>
 

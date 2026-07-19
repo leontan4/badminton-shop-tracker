@@ -250,3 +250,71 @@ def test_cannot_cancel_already_cancelled_order(client, customer_id, service_id):
     client.delete(f"/orders/{order_id}")
     res = client.delete(f"/orders/{order_id}")
     assert res.status_code == 400
+
+def test_revert_ready_back_to_in_progress(client, customer_id, service_id):
+    order_id = client.post(
+        "/orders",
+        json={"customer_id": customer_id, "items": [{"service_id": service_id, "price_charged": 30.0}]},
+    ).json()["id"]
+    client.patch(f"/orders/{order_id}/start")
+    client.patch(f"/orders/{order_id}/mark-ready")
+    client.post(f"/orders/{order_id}/send-notification")
+
+    res = client.patch(f"/orders/{order_id}/revert-ready")
+    assert res.json()["status"] == "in_progress"
+    assert res.json()["ready_at"] is None
+    assert res.json()["notification_status"] == "sent"  # honest record: a text really was sent
+
+
+def test_cannot_revert_order_not_ready(client, customer_id, service_id):
+    order_id = client.post(
+        "/orders",
+        json={"customer_id": customer_id, "items": [{"service_id": service_id, "price_charged": 30.0}]},
+    ).json()["id"]
+    res = client.patch(f"/orders/{order_id}/revert-ready")
+    assert res.status_code == 400
+
+def test_analytics_summary_separates_created_and_completed(client, customer_id, service_id):
+    # One completed order
+    o1 = client.post(
+        "/orders",
+        json={"customer_id": customer_id, "items": [{"service_id": service_id, "price_charged": 30.0}]},
+    ).json()["id"]
+    client.patch(f"/orders/{o1}/start")
+    client.patch(f"/orders/{o1}/mark-ready")
+    client.post(f"/orders/{o1}/send-notification")
+    client.patch(f"/orders/{o1}/pickup")
+
+    # One cancelled order -- should count toward created_total, not completed_total
+    o2 = client.post(
+        "/orders",
+        json={"customer_id": customer_id, "items": [{"service_id": service_id, "price_charged": 30.0}]},
+    ).json()["id"]
+    client.delete(f"/orders/{o2}")
+
+    res = client.get("/analytics/summary")
+    week = res.json()["weekly"][0]
+    assert week["orders_created"] == 2
+    assert week["created_total"] == 60.0
+    assert week["orders_completed"] == 1
+    assert week["completed_total"] == 30.0
+
+def test_analytics_excludes_cancelled_order_items_from_top_lists(client, customer_id, service_id):
+    string_res = client.post(
+        "/products", json={"name": "Test String", "category": "string", "cost_to_shop": 0, "price_to_customer": 0}
+    )
+    string_id = string_res.json()["id"]
+
+    # This order gets cancelled -- its string usage shouldn't be counted.
+    order_id = client.post(
+        "/orders",
+        json={
+            "customer_id": customer_id,
+            "items": [{"service_id": service_id, "product_id": string_id, "price_charged": 30.0}],
+        },
+    ).json()["id"]
+    client.delete(f"/orders/{order_id}")
+
+    res = client.get("/analytics/summary")
+    string_names = [s["name"] for s in res.json()["top_strings"]]
+    assert "Test String" not in string_names

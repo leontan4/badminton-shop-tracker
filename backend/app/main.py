@@ -3,6 +3,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from datetime import datetime
 from typing import List, Optional
+from collections import defaultdict
+from datetime import datetime, timedelta
 
 from . import models, schemas
 from .database import engine, get_db
@@ -311,6 +313,56 @@ def delete_order(order_id: int, db: Session = Depends(get_db)):
     send_owner_email(f"Order #{order.id} cancelled", order)
     return order
 
+@app.get("/analytics/summary")
+def analytics_summary(weeks: int = 8, db: Session = Depends(get_db)):
+    """
+    Weekly revenue (grouped by when each order was CREATED, not picked up)
+    plus the most-used strings/grips/racket models over the same window.
+    """
+    cutoff = datetime.utcnow() - timedelta(weeks=weeks)
+    orders = db.query(models.Order).filter(models.Order.created_at >= cutoff).all()
+
+    weekly = defaultdict(lambda: {
+        "orders_created": 0, "created_total": 0.0,
+        "orders_completed": 0, "completed_total": 0.0,
+    })
+    for o in orders:
+        week_start = (o.created_at - timedelta(days=o.created_at.weekday())).date().isoformat()
+        weekly[week_start]["orders_created"] += 1
+        weekly[week_start]["created_total"] += o.total_price
+        if o.status == "picked_up":
+            weekly[week_start]["orders_completed"] += 1
+            weekly[week_start]["completed_total"] += o.total_price
+
+    weekly_list = [{"week_start": k, **v} for k, v in sorted(weekly.items())]
+
+    items = (
+        db.query(models.OrderItem)
+        .join(models.Order)
+        .filter(models.Order.created_at >= cutoff, models.Order.status != "cancelled")
+        .all()
+    )
+
+    string_counts = defaultdict(int)
+    grip_counts = defaultdict(int)
+    racket_counts = defaultdict(int)
+    for item in items:
+        if item.product and item.product.category == "string":
+            string_counts[item.product.name] += item.quantity
+        elif item.product and item.product.category == "grip":
+            grip_counts[item.product.name] += item.quantity
+        if item.racket_model:
+            racket_counts[item.racket_model] += item.quantity
+
+    def top_n(counts, n=5):
+        return [{"name": k, "count": v} for k, v in sorted(counts.items(), key=lambda x: -x[1])[:n]]
+
+    return {
+        "weekly": weekly_list,
+        "top_strings": top_n(string_counts),
+        "top_grips": top_n(grip_counts),
+        "top_racket_models": top_n(racket_counts),
+    }
 
 @app.get("/")
 def root():

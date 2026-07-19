@@ -20,6 +20,19 @@ async function searchCustomers() {
   const res = await fetch(`${API}/customers?search=${encodeURIComponent(q)}`);
   const data = await res.json();
   lastSearchResults = data;
+
+  if (data.length === 0) {
+    document.getElementById("custResults").innerHTML = `
+      <div class="empty" style="padding:12px;">
+        No matches
+        <div style="margin-top:8px;">
+          <button class="secondary" onclick="quickCreateCustomer('${q.replace(/'/g, "")}')">+ Create new customer "${q}"</button>
+        </div>
+      </div>
+    `;
+    return;
+  }
+
   document.getElementById("custResults").innerHTML = data.map(c => `
     <div class="result-row">
       <span class="cust-info" onclick="selectCustomer(${c.id}, '${c.name.replace(/'/g,"")}', '${c.phone}')">
@@ -27,7 +40,16 @@ async function searchCustomers() {
       </span>
       <button class="ghost" style="padding:3px 8px; font-size:11px;" onclick="startEditCustomer(${c.id})">Edit</button>
     </div>
-  `).join("") || `<div class="empty">No matches</div>`;
+  `).join("");
+}
+
+// Opens the new-customer form with the searched name already filled in,
+// so the flow is: search, not found, click once, just add the phone.
+function quickCreateCustomer(name) {
+  document.getElementById("custResults").innerHTML = "";
+  document.getElementById("newCustomerForm").style.display = "block";
+  document.getElementById("newCustName").value = name;
+  document.getElementById("newCustPhone").focus();
 }
 
 function startEditCustomer(id) {
@@ -114,27 +136,32 @@ async function createCustomer() {
 
 // ---------------- Line items ----------------
 function racketModelOptionsHtml() {
+  const sorted = [...racketModels].sort((a, b) => a.name.localeCompare(b.name));
   return [
     `<option value="">-- racket model --</option>`,
-    ...racketModels.map(r => `<option value="${r.name}">${r.name}</option>`)
+    ...sorted.map(r => `<option value="${r.name}">${r.name}</option>`),
+    `<option value="__other__">Other (type manually)</option>`
   ].join("");
 }
 
 function toggleRacketModelOther(selectEl) {
   const wrap = selectEl.closest(".racket-fields");
   const other = wrap.querySelector(".racket-model-other");
-  other.style.display = selectEl.value === "Other (type manually)" ? "block" : "none";
+  other.style.display = selectEl.value === "__other__" ? "block" : "none";
 }
 
 function getRacketModelValue(wrap) {
   const select = wrap.querySelector(".racket-model");
   if (!select) return "";
-  if (select.value === "Other (type manually)") {
+  if (select.value === "__other__") {
     return wrap.querySelector(".racket-model-other")?.value || "";
   }
   return select.value;
 }
 
+// For pre-filling an existing order's saved racket model: if it matches a
+// known catalog entry, select it directly; otherwise fall back to "Other"
+// with the value shown in the side box.
 function setRacketModelValue(wrap, value) {
   if (!value) return;
   const select = wrap.querySelector(".racket-model");
@@ -143,10 +170,42 @@ function setRacketModelValue(wrap, value) {
   if (matches) {
     select.value = value;
   } else {
-    select.value = "Other (type manually)";
+    select.value = "__other__";
     other.style.display = "block";
     other.value = value;
   }
+}
+
+// If this racket model name isn't in our known list yet, save it to the
+// catalog so it shows up as a suggestion next time. Fire-and-forget --
+// doesn't block order submission, and duplicates are harmless (just an
+// unused extra catalog row) if two staff add the same new model at once.
+async function persistNewRacketModel(name) {
+  if (!name) return;
+  const known = racketModels.some(r => r.name === name);
+  if (known) return;
+  const res = await fetch(`${API}/products`, {
+    method: "POST", headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({ name, category: "racket_model", cost_to_shop: 0, price_to_customer: 0 })
+  });
+  if (res.ok) racketModels.push(await res.json());
+}
+
+// String/grip types are real catalog rows (linked by product_id), so a
+// brand-new one has to actually be created in the database before we can
+// reference it. Returns the resolved product id, or null if no name given.
+async function resolveOrCreateProduct(name, category) {
+  if (!name) return null;
+  const existing = products.find(p => p.name === name && p.category === category);
+  if (existing) return existing.id;
+  const res = await fetch(`${API}/products`, {
+    method: "POST", headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({ name, category, cost_to_shop: 0, price_to_customer: 0 })
+  });
+  if (!res.ok) return null;
+  const created = await res.json();
+  products.push(created);
+  return created.id;
 }
 
 function addItemLine() {
@@ -161,17 +220,18 @@ function addItemLine() {
 
   div.innerHTML = `
     <div class="item-line">
-      <select class="service-select" onchange="updateTotal(); onServiceChange(this);">${serviceOptions}</select>
+      <select class="service-select" onchange="onServiceChange(this); updateTotal();">${serviceOptions}</select>
       <input type="number" value="1" min="1" onchange="updateTotal()" class="qty">
       <input type="number" step="0.01" placeholder="price" class="price" onchange="updateTotal()">
       <button type="button" class="danger" onclick="this.closest('.item-line-wrap').remove(); updateTotal();" style="padding:6px;">✕</button>
     </div>
     <div class="racket-fields" style="display:none;">
       <select class="racket-model" onchange="toggleRacketModelOther(this)">${racketModelOptionsHtml()}</select>
-      <input type="text" class="racket-model-other" placeholder="Type racket model" style="display:none;">
+      <input type="text" class="racket-model-other" placeholder="Type new racket model" style="display:none;">
     </div>
     <div class="type-fields" style="display:none;">
-      <select class="type-select"></select>
+      <select class="type-select" onchange="toggleTypeOther(this)"></select>
+      <input type="text" class="type-other" placeholder="Type new" style="display:none;">
       <input type="text" placeholder="String tension (e.g. 24 lbs)" class="string-tension" style="display:none;">
     </div>
   `;
@@ -187,6 +247,7 @@ function onServiceChange(selectEl) {
   const racketFields = wrap.querySelector(".racket-fields");
   const typeFields = wrap.querySelector(".type-fields");
   const typeSelect = wrap.querySelector(".type-select");
+  const typeOther = wrap.querySelector(".type-other");
   const tensionInput = wrap.querySelector(".string-tension");
 
   // auto-fill price from the selected service
@@ -207,12 +268,22 @@ function onServiceChange(selectEl) {
   racketFields.style.display = "flex";
   typeFields.style.display = "flex";
   tensionInput.style.display = mode === "string" ? "block" : "none";
+  typeOther.placeholder = mode === "string" ? "Type new string type" : "Type new grip type/color";
 
-  const catalog = products.filter(p => p.category === mode);
+  const catalog = products.filter(p => p.category === mode)
+    .sort((a, b) => a.name.localeCompare(b.name));
   typeSelect.innerHTML = [
     `<option value="">-- ${mode === "string" ? "string type" : "grip type"} --</option>`,
-    ...catalog.map(p => `<option value="${p.id}">${p.name}</option>`)
+    ...catalog.map(p => `<option value="${p.id}">${p.name}</option>`),
+    `<option value="__other__">Other (type manually)</option>`
   ].join("");
+  typeSelect.dataset.category = mode;
+}
+
+function toggleTypeOther(selectEl) {
+  const wrap = selectEl.closest(".item-line-wrap");
+  const other = wrap.querySelector(".type-other");
+  other.style.display = selectEl.value === "__other__" ? "block" : "none";
 }
 
 function updateTotal() {
@@ -238,9 +309,12 @@ function reviewOrder() {
     let desc = `${qty}x ${label} — $${price}`;
 
     const typeSelect = wrap.querySelector(".type-select");
-    const typeLabel = typeSelect && typeSelect.value
-      ? typeSelect.options[typeSelect.selectedIndex].text
-      : null;
+    let typeLabel = null;
+    if (typeSelect && typeSelect.value === "__other__") {
+      typeLabel = wrap.querySelector(".type-other")?.value || null;
+    } else if (typeSelect && typeSelect.value) {
+      typeLabel = typeSelect.options[typeSelect.selectedIndex].text;
+    }
     if (typeLabel) desc += ` (${typeLabel})`;
 
     const racketModel = getRacketModelValue(wrap);
@@ -270,46 +344,92 @@ function reviewOrder() {
   `;
 }
 
+let isSubmittingOrder = false;
+
 async function submitOrder() {
   if (!selectedCustomerId) { showToast("Select or create a customer first"); return; }
-  const items = [];
-  document.querySelectorAll(".item-line-wrap").forEach(wrap => {
-    const serviceVal = wrap.querySelector(".service-select").value;
-    if (!serviceVal) return;
-    const [serviceId] = serviceVal.split(":");
-    const qty = parseInt(wrap.querySelector(".qty").value) || 1;
-    const price = parseFloat(wrap.querySelector(".price").value) || 0;
-    const item = { quantity: qty, price_charged: price, service_id: parseInt(serviceId) };
+  if (isSubmittingOrder) return;  // guards against double-click / accidental double-submit
 
-    const typeSelect = wrap.querySelector(".type-select");
-    if (typeSelect && typeSelect.value) item.product_id = parseInt(typeSelect.value);
+  const confirmBtn = document.querySelector("#orderReview button[onclick='submitOrder()']");
+  if (confirmBtn) confirmBtn.disabled = true;
+  isSubmittingOrder = true;
 
-    const racketModel = getRacketModelValue(wrap);
-    const tension = wrap.querySelector(".string-tension")?.value;
-    if (racketModel) item.racket_model = racketModel;
-    if (tension) item.string_tension = tension;
-    items.push(item);
-  });
-  if (items.length === 0) { showToast("Add at least one line item"); return; }
+  try {
+    // Soft duplicate check: does this customer already have a very recent
+    // active order? Doesn't block creation -- just warns, since sometimes
+    // a customer genuinely does drop off two rackets close together.
+    const existingRes = await fetch(`${API}/orders`);
+    const existingOrders = await existingRes.json();
+    const recentCutoff = Date.now() - 10 * 60 * 1000; // 10 minutes
+    const possibleDuplicate = existingOrders.find(o =>
+      o.customer_id === selectedCustomerId &&
+      ["dropped_off", "in_progress"].includes(o.status) &&
+      new Date(o.created_at).getTime() > recentCutoff
+    );
+    if (possibleDuplicate) {
+      const minutesAgo = Math.round((Date.now() - new Date(possibleDuplicate.created_at).getTime()) / 60000);
+      const proceed = confirm(
+        `This customer already has an active order (#${possibleDuplicate.id}, $${possibleDuplicate.total_price.toFixed(2)}) ` +
+        `created ${minutesAgo} minute(s) ago. Create another order anyway?`
+      );
+      if (!proceed) return;
+    }
 
-  const res = await fetch(`${API}/orders`, {
-    method: "POST", headers: {"Content-Type": "application/json"},
-    body: JSON.stringify({ customer_id: selectedCustomerId, items })
-  });
-  if (!res.ok) {
-    const err = await res.json();
-    showToast(err.detail || "Could not create order");
-    return;
+    const items = [];
+    const wraps = [...document.querySelectorAll(".item-line-wrap")];
+
+    for (const wrap of wraps) {
+      const serviceVal = wrap.querySelector(".service-select").value;
+      if (!serviceVal) continue;
+      const [serviceId] = serviceVal.split(":");
+      const qty = parseInt(wrap.querySelector(".qty").value) || 1;
+      const price = parseFloat(wrap.querySelector(".price").value) || 0;
+      const item = { quantity: qty, price_charged: price, service_id: parseInt(serviceId) };
+
+      const typeSelect = wrap.querySelector(".type-select");
+      if (typeSelect && typeSelect.value === "__other__") {
+        const typedName = wrap.querySelector(".type-other")?.value;
+        if (typedName) {
+          const productId = await resolveOrCreateProduct(typedName, typeSelect.dataset.category);
+          if (productId) item.product_id = productId;
+        }
+      } else if (typeSelect && typeSelect.value) {
+        item.product_id = parseInt(typeSelect.value);
+      }
+
+      const racketModel = getRacketModelValue(wrap);
+      if (racketModel) {
+        await persistNewRacketModel(racketModel);
+        item.racket_model = racketModel;
+      }
+      const tension = wrap.querySelector(".string-tension")?.value;
+      if (tension) item.string_tension = tension;
+      items.push(item);
+    }
+    if (items.length === 0) { showToast("Add at least one line item"); return; }
+
+    const res = await fetch(`${API}/orders`, {
+      method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({ customer_id: selectedCustomerId, items })
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      showToast(err.detail || "Could not create order");
+      return;
+    }
+
+    showToast("Order created");
+    document.getElementById("itemLines").innerHTML = "";
+    document.getElementById("lineItemsSection").style.display = "none";
+    document.getElementById("orderReview").innerHTML = "";
+    document.getElementById("selectedCustomer").style.display = "none";
+    selectedCustomerId = null;
+    updateTotal();
+    loadOrders();
+  } finally {
+    isSubmittingOrder = false;
+    if (confirmBtn) confirmBtn.disabled = false;
   }
-
-  showToast("Order created");
-  document.getElementById("itemLines").innerHTML = "";
-  document.getElementById("lineItemsSection").style.display = "none";
-  document.getElementById("orderReview").innerHTML = "";
-  document.getElementById("selectedCustomer").style.display = "none";
-  selectedCustomerId = null;
-  updateTotal();
-  loadOrders();
 }
 
 // ---------------- Order queue ----------------
@@ -403,11 +523,12 @@ function startEditItems(orderId) {
         </div>
         <div class="racket-fields" style="display:none;">
           <select class="racket-model" onchange="toggleRacketModelOther(this)">${racketModelOptionsHtml()}</select>
-          <input type="text" class="racket-model-other" placeholder="Type racket model" style="display:none;">
+          <input type="text" class="racket-model-other" placeholder="Type new racket model" style="display:none;">
         </div>
         <div class="type-fields" style="display:none;">
-          <select class="type-select"></select>
-          <input type="text" placeholder="String tension" class="string-tension" style="display:none;">
+          <select class="type-select" onchange="toggleTypeOther(this)"></select>
+          <input type="text" class="type-other" placeholder="Type new" style="display:none;">
+          <input type="text" placeholder="String tension" class="string-tension" style="display:none;" value="${item.string_tension || ""}">
         </div>
       </div>
     `;
@@ -424,6 +545,9 @@ function startEditItems(orderId) {
       </div>
     `;
 
+    // Pre-fill each line: service selection triggers the sub-fields to
+    // appear and the type select to populate; then set the specific
+    // product/racket-model/tension values on top of that.
     const wraps = container.querySelectorAll(".edit-item-line-wrap");
     order.items.forEach((item, i) => {
       const wrap = wraps[i];
@@ -432,35 +556,55 @@ function startEditItems(orderId) {
       const match = Array.from(select.options).find(opt => opt.value.startsWith(`${item.service_id}:`));
       if (match) {
         select.value = match.value;
-        onServiceChange(select);
+        onServiceChange(select); // populates the type select options and shows sub-fields
       }
-      if (item.product_id) wrap.querySelector(".type-select").value = item.product_id;
-      if (item.string_tension) wrap.querySelector(".string-tension").value = item.string_tension;
+      const typeSelect = wrap.querySelector(".type-select");
+      if (item.product_id && typeSelect) {
+        const hasOption = Array.from(typeSelect.options).some(o => o.value === String(item.product_id));
+        if (hasOption) {
+          typeSelect.value = String(item.product_id);
+        } else if (item.product_name) {
+          typeSelect.value = "__other__";
+          wrap.querySelector(".type-other").style.display = "block";
+          wrap.querySelector(".type-other").value = item.product_name;
+        }
+      }
       if (item.racket_model) setRacketModelValue(wrap, item.racket_model);
     });
   });
 }
 
 async function saveEditItems(orderId) {
-  const wraps = document.querySelectorAll(`#editLines-${orderId} .edit-item-line-wrap`);
+  const wraps = [...document.querySelectorAll(`#editLines-${orderId} .edit-item-line-wrap`)];
   const items = [];
-  wraps.forEach(wrap => {
+  for (const wrap of wraps) {
     const serviceVal = wrap.querySelector(".service-select").value;
-    if (!serviceVal) return;
+    if (!serviceVal) continue;
     const [serviceId] = serviceVal.split(":");
     const qty = parseInt(wrap.querySelector(".qty").value) || 1;
     const price = parseFloat(wrap.querySelector(".price").value) || 0;
     const item = { quantity: qty, price_charged: price, service_id: parseInt(serviceId) };
 
     const typeSelect = wrap.querySelector(".type-select");
-    if (typeSelect && typeSelect.value) item.product_id = parseInt(typeSelect.value);
+    if (typeSelect && typeSelect.value === "__other__") {
+      const typedName = wrap.querySelector(".type-other")?.value;
+      if (typedName) {
+        const productId = await resolveOrCreateProduct(typedName, typeSelect.dataset.category);
+        if (productId) item.product_id = productId;
+      }
+    } else if (typeSelect && typeSelect.value) {
+      item.product_id = parseInt(typeSelect.value);
+    }
 
     const racketModel = getRacketModelValue(wrap);
+    if (racketModel) {
+      await persistNewRacketModel(racketModel);
+      item.racket_model = racketModel;
+    }
     const tension = wrap.querySelector(".string-tension")?.value;
-    if (racketModel) item.racket_model = racketModel;
     if (tension) item.string_tension = tension;
     items.push(item);
-  });
+  }
   if (items.length === 0) { showToast("Order must have at least one line item"); return; }
 
   const res = await fetch(`${API}/orders/${orderId}/items`, {
@@ -474,15 +618,74 @@ async function saveEditItems(orderId) {
   loadOrders();
 }
 
-// ---------------- Order history ----------------
-let historyVisible = false;
+// ---------------- View switching (Active / Summary / History) ----------------
+let currentView = "active";
 
-function toggleHistory() {
-  historyVisible = !historyVisible;
-  document.getElementById("orderHistory").style.display = historyVisible ? "block" : "none";
-  if (historyVisible) loadHistory();
+const VIEW_TITLES = { active: "Active Orders", summary: "Summary", history: "History" };
+
+function showView(view) {
+  currentView = view;
+  document.getElementById("queueTitle").textContent = VIEW_TITLES[view];
+  document.getElementById("orderQueue").style.display = view === "active" ? "block" : "none";
+  document.getElementById("orderStats").style.display = view === "summary" ? "block" : "none";
+  document.getElementById("orderHistory").style.display = view === "history" ? "block" : "none";
+
+  if (view === "active") loadOrders();
+  else if (view === "summary") loadStats();
+  else if (view === "history") loadHistory();
 }
 
+async function loadStats() {
+  const res = await fetch(`${API}/analytics/summary?weeks=8`);
+  const data = await res.json();
+  const container = document.getElementById("orderStats");
+
+  const weeklyRows = data.weekly.slice().reverse().map(w => `
+    <tr>
+      <td>${w.week_start}</td>
+      <td>${w.orders_created}</td>
+      <td>$${w.created_total.toFixed(2)}</td>
+      <td>${w.orders_completed}</td>
+      <td>$${w.completed_total.toFixed(2)}</td>
+    </tr>
+  `).join("");
+
+  const topList = (items) => items.length
+    ? items.map(i => `<li>${i.name} — ${i.count}x</li>`).join("")
+    : `<li class="empty" style="padding:4px 0;">No data yet</li>`;
+
+  container.innerHTML = `
+    <h2 style="margin-bottom:10px;">Stats (last 8 weeks)</h2>
+    <table style="width:100%; border-collapse:collapse; font-size:12px; margin-bottom:16px;">
+      <thead>
+        <tr style="text-align:left; color:var(--muted);">
+          <th style="padding:4px;">Week of</th>
+          <th style="padding:4px;">Created</th>
+          <th style="padding:4px;">Value created</th>
+          <th style="padding:4px;">Completed</th>
+          <th style="padding:4px;">Value completed</th>
+        </tr>
+      </thead>
+      <tbody>${weeklyRows || `<tr><td colspan="5" class="empty">No orders yet</td></tr>`}</tbody>
+    </table>
+    <div class="row" style="align-items:flex-start; gap:24px;">
+      <div>
+        <strong style="font-size:12px; color:var(--muted);">TOP STRINGS</strong>
+        <ul style="margin:6px 0 0; padding-left:18px; font-size:12px;">${topList(data.top_strings)}</ul>
+      </div>
+      <div>
+        <strong style="font-size:12px; color:var(--muted);">TOP GRIPS</strong>
+        <ul style="margin:6px 0 0; padding-left:18px; font-size:12px;">${topList(data.top_grips)}</ul>
+      </div>
+      <div>
+        <strong style="font-size:12px; color:var(--muted);">TOP RACKET MODELS</strong>
+        <ul style="margin:6px 0 0; padding-left:18px; font-size:12px;">${topList(data.top_racket_models)}</ul>
+      </div>
+    </div>
+  `;
+}
+
+// ---------------- Order history ----------------
 async function loadHistory() {
   const [pickedUpRes, cancelledRes] = await Promise.all([
     fetch(`${API}/orders?status=picked_up`),
@@ -546,10 +749,11 @@ async function init() {
   products = allProducts.filter(p => p.category !== "racket_model");
   racketModels = allProducts.filter(p => p.category === "racket_model");
   services = await (await fetch(`${API}/services`)).json();
-  loadOrders();
+  loadOrders();  // Active Orders is the default view on load
   setInterval(() => {
-    loadOrders();
-    if (historyVisible) loadHistory();
+    if (currentView === "active") loadOrders();
+    else if (currentView === "summary") loadStats();
+    else if (currentView === "history") loadHistory();
   }, 5000);
 }
 init();

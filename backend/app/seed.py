@@ -54,7 +54,7 @@ if not db.query(models.Product).filter(models.Product.category == "racket_model"
         "Yonex Arcsaber 11 Pro", "Yonex Duora 10",
         "Victor Thruster K Falcon", "Victor Auraspeed 90K", "Victor Jetspeed S12",
         "Li-Ning Aeronaut 9000", "Li-Ning Axforce 90",
-        "Babolat Satelite Gravity", "Other (type manually)",
+        "Babolat Satelite Gravity",
     ]
     for name in racket_models:
         db.add(models.Product(name=name, category="racket_model", cost_to_shop=0.0, price_to_customer=0.0))

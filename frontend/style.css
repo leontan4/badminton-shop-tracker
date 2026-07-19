@@ -60,9 +60,8 @@
     background: var(--paper);
   }
   .racket-fields { display: flex; gap: 6px; margin-top: 4px; }
-  .racket-fields select, .racket-fields input { font-size: 12px; }
-  .type-fields { display: flex; gap: 6px; margin-top: 4px; }
-  .type-fields select, .type-fields input { font-size: 12px; }
+  .racket-fields input { font-size: 12px; }
+  .type-fields input { font-size: 12px; }
   .order-card {
     border: 1px solid var(--line); border-radius: 8px; padding: 14px; margin-bottom: 12px;
     background: var(--paper);
