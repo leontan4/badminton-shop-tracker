@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Container, Row, Col, Card, Button, Toast, ToastContainer, Form } from "react-bootstrap";
+import { Container, Row, Col, Card, Button, ButtonGroup, Toast, ToastContainer, Form } from "react-bootstrap";
 import { AnimatePresence, motion } from "framer-motion";
 import { api } from "./api";
 import NewOrderForm from "./components/NewOrderForm";
@@ -13,6 +13,7 @@ export default function App() {
   const [racketModels, setRacketModels] = useState([]);
   const [orders, setOrders] = useState([]);
   const [view, setView] = useState("active");
+  const [activeSubTab, setActiveSubTab] = useState("open"); // "open" | "ready"
   const [activeSearch, setActiveSearch] = useState("");
   const [editingOrderId, setEditingOrderId] = useState(null);
   const [toastMsg, setToastMsg] = useState(null);
@@ -51,15 +52,23 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view]);
 
-  const activeOrders = orders
-    .filter((o) => o.status !== "picked_up" && o.status !== "cancelled")
-    .filter((o) => {
-      const q = activeSearch.trim().toLowerCase();
-      if (!q) return true;
-      const name = (o.customer?.name || "").toLowerCase();
-      const phone = (o.customer?.phone || "").toLowerCase();
-      return name.includes(q) || phone.includes(q);
-    });
+  const searchFilter = (o) => {
+    const q = activeSearch.trim().toLowerCase();
+    if (!q) return true;
+    const name = (o.customer?.name || "").toLowerCase();
+    const phone = (o.customer?.phone || "").toLowerCase();
+    return name.includes(q) || phone.includes(q);
+  };
+
+  const openOrders = orders
+    .filter((o) => o.status === "dropped_off" || o.status === "in_progress")
+    .filter(searchFilter);
+
+  const readyOrders = orders
+    .filter((o) => o.status === "ready_pending_confirm" || o.status === "ready")
+    .filter(searchFilter);
+
+  const activeOrders = activeSubTab === "open" ? openOrders : readyOrders;
 
   const VIEW_TITLES = { active: "Active Orders", summary: "Summary", history: "History" };
 
@@ -108,14 +117,24 @@ export default function App() {
                   {view === "active" && (
                     <>
                       <Form.Control
-                        className="mb-3"
+                        className="mb-2"
                         placeholder="Search active orders by customer name or phone..."
                         value={activeSearch}
                         onChange={(e) => setActiveSearch(e.target.value)}
                       />
+                      <ButtonGroup size="sm" className="mb-3 tab-fused">
+                        <Button variant={activeSubTab === "open" ? "primary" : "outline-primary"} onClick={() => setActiveSubTab("open")}>
+                          Open ({openOrders.length})
+                        </Button>
+                        <Button variant={activeSubTab === "ready" ? "primary" : "outline-primary"} onClick={() => setActiveSubTab("ready")}>
+                          Ready ({readyOrders.length})
+                        </Button>
+                      </ButtonGroup>
                       {activeOrders.length === 0
                         ? <div className="text-muted text-center py-4">
-                            {activeSearch ? `No matching active orders for "${activeSearch}"` : "No active orders"}
+                            {activeSearch
+                              ? `No matching ${activeSubTab} orders for "${activeSearch}"`
+                              : activeSubTab === "open" ? "No open orders" : "No orders ready for pickup"}
                           </div>
                         : (
                           <AnimatePresence initial={false}>
