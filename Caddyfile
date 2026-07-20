@@ -1,0 +1,21 @@
+:80 {
+    # No domain yet -- this serves plain HTTP on the droplet's IP.
+    # Once you get a domain, swap ":80" for "your-domain.com" and Caddy
+    # will automatically switch to HTTPS with a real cert -- no other
+    # changes needed.
+    basicauth /* {
+        # username: staff
+        # generate the hash with: docker run --rm caddy:2-alpine caddy hash-password --plaintext 'yourpassword'
+        staff YOUR_HASHED_PASSWORD_HERE
+    }
+
+    # API routes go to the backend
+    handle /api/* {
+        reverse_proxy backend:8000
+    }
+
+    # Everything else goes to the frontend
+    handle {
+        reverse_proxy frontend:80
+    }
+}

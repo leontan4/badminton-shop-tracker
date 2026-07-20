@@ -1,0 +1,50 @@
+# Production deployment file -- use this INSTEAD of docker-compose.yml on the Hetzner server.
+# Difference from local: no `db` service (Supabase is the database), and Caddy
+# is the only thing exposed to the internet (handles HTTPS + Basic Auth gating).
+#
+# Usage on the server:
+#   docker compose -f docker-compose.prod.yml up --build -d
+
+services:
+  backend:
+    build: ./backend
+    container_name: badminton-backend
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+    env_file:
+      - .env
+    command: >
+      sh -c "uv run python -m app.seed &&
+             uv run uvicorn app.main:app --host 0.0.0.0 --port 8000"
+    # No ports: exposed here on purpose. Only Caddy should be reachable
+    # from outside -- otherwise you could hit the app directly and skip
+    # the password gate.
+    expose:
+      - "8000"
+
+  frontend:
+    build: ./frontend
+    container_name: badminton-frontend
+    restart: unless-stopped
+    expose:
+      - "80"
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: badminton-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - backend
+      - frontend
+
+volumes:
+  caddy_data:
+  caddy_config:
