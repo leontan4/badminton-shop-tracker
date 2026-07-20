@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { ButtonGroup, Button, Form } from "react-bootstrap";
+import { ButtonGroup, Button, Form, Modal } from "react-bootstrap";
+import { AnimatePresence, motion } from "framer-motion";
 import { api } from "../api";
 
 function formatItemLine(i) {
@@ -10,17 +11,35 @@ function formatItemLine(i) {
   return parts.join(" · ");
 }
 
-export default function History() {
+export default function History({ onToast }) {
   const [orders, setOrders] = useState(null);
   const [filter, setFilter] = useState("all"); // "all" | "picked_up" | "cancelled"
   const [search, setSearch] = useState("");
+  const [restoreOrderId, setRestoreOrderId] = useState(null);
 
   useEffect(() => {
+    loadOrders();
+  }, []);
+
+  function loadOrders() {
     Promise.all([api.listOrders("picked_up"), api.listOrders("cancelled")]).then(([picked, cancelled]) => {
       const combined = [...picked, ...cancelled].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
       setOrders(combined);
     });
-  }, []);
+  }
+
+  async function confirmRestore() {
+    const id = restoreOrderId;
+    setRestoreOrderId(null);
+    try {
+      await api.uncancelOrder(id);
+      onToast?.("Order restored to Active (Dropped off)");
+      // Remove it from this list immediately -- it's no longer picked_up/cancelled
+      setOrders((prev) => prev.filter((o) => o.id !== id));
+    } catch (e) {
+      onToast?.(e.message);
+    }
+  }
 
   if (!orders) return <div className="text-muted text-center py-4">Loading...</div>;
 
@@ -47,7 +66,7 @@ export default function History() {
         onChange={(e) => setSearch(e.target.value)}
       />
 
-      <ButtonGroup size="sm" className="mb-3">
+      <ButtonGroup size="sm" className="mb-3 tab-fused">
         <Button variant={filter === "all" ? "primary" : "outline-primary"} onClick={() => setFilter("all")}>
           All ({orders.length})
         </Button>
@@ -66,27 +85,57 @@ export default function History() {
             : filter === "all" ? "No completed or cancelled orders yet" : `No ${filter === "picked_up" ? "fulfilled" : "cancelled"} orders yet`}
         </div>
       ) : (
-        filtered.map((o) => (
-          <div key={o.id} className="card p-3 mb-3" style={{ opacity: 0.75 }}>
-            <div className="d-flex justify-content-between align-items-baseline">
-              <div>
-                <div className="fw-semibold">{o.customer?.name || `Customer #${o.customer_id}`}</div>
-                <div className="text-muted small">
-                  Order #{o.id} · ${o.total_price.toFixed(2)} · {
-                    o.status === "cancelled"
-                      ? `cancelled ${new Date(o.cancelled_at).toLocaleDateString()}`
-                      : `picked up ${new Date(o.picked_up_at).toLocaleDateString()}`
-                  }
+        <AnimatePresence initial={false}>
+          {filtered.map((o) => (
+            <motion.div
+              key={o.id}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.96 }}
+              transition={{ duration: 0.2, ease: "easeOut" }}
+            >
+              <div className="card p-3 mb-3" style={{ opacity: 0.75 }}>
+                <div className="d-flex justify-content-between align-items-baseline">
+                  <div>
+                    <div className="fw-semibold">{o.customer?.name || `Customer #${o.customer_id}`}</div>
+                    <div className="text-muted small">
+                      Order #{o.id} · ${o.total_price.toFixed(2)} · {
+                        o.status === "cancelled"
+                          ? `cancelled ${new Date(o.cancelled_at).toLocaleDateString()}`
+                          : `picked up ${new Date(o.picked_up_at).toLocaleDateString()}`
+                      }
+                    </div>
+                  </div>
+                  <span className={`badge badge-${o.status}`}>{o.status === "cancelled" ? "Cancelled" : "Picked up"}</span>
                 </div>
+                <div className="text-muted small mt-1">
+                  {o.items.map((i, idx) => <div key={idx}>{formatItemLine(i)}</div>)}
+                </div>
+                {o.status === "cancelled" && (
+                  <div className="mt-2">
+                    <Button size="sm" variant="outline-primary" onClick={() => setRestoreOrderId(o.id)}>
+                      Restore to Active
+                    </Button>
+                  </div>
+                )}
               </div>
-              <span className={`badge badge-${o.status}`}>{o.status === "cancelled" ? "Cancelled" : "Picked up"}</span>
-            </div>
-            <div className="text-muted small mt-1">
-              {o.items.map((i, idx) => <div key={idx}>{formatItemLine(i)}</div>)}
-            </div>
-          </div>
-        ))
+            </motion.div>
+          ))}
+        </AnimatePresence>
       )}
+
+      <Modal show={restoreOrderId !== null} onHide={() => setRestoreOrderId(null)} centered size="sm">
+        <Modal.Body>
+          <p className="mb-3">
+            Restore this order to <strong>Active</strong>? It'll go back to "Dropped off" status
+            (since we don't track exactly which stage it was at before cancelling).
+          </p>
+          <div className="d-flex gap-2 justify-content-end">
+            <Button size="sm" variant="secondary" onClick={() => setRestoreOrderId(null)}>Keep cancelled</Button>
+            <Button size="sm" onClick={confirmRestore}>Restore</Button>
+          </div>
+        </Modal.Body>
+      </Modal>
     </div>
   );
 }

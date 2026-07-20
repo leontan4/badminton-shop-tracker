@@ -10,9 +10,23 @@ async function request(path, options = {}) {
   });
   const data = await res.json().catch(() => null);
   if (!res.ok) {
-    throw new Error(data?.detail || "Request failed");
+    throw new Error(extractErrorMessage(data));
   }
   return data;
+}
+
+// FastAPI's own HTTPException(...) calls return detail as a plain string,
+// but Pydantic validation errors (422s, e.g. from a field validator
+// raising ValueError) return detail as an array of error objects instead.
+// This normalizes both into one clean, readable message.
+function extractErrorMessage(data) {
+  if (!data?.detail) return "Request failed";
+  if (typeof data.detail === "string") return data.detail;
+  if (Array.isArray(data.detail) && data.detail[0]?.msg) {
+    // Pydantic prefixes custom validator messages with "Value error, "
+    return data.detail[0].msg.replace(/^Value error,\s*/, "");
+  }
+  return "Request failed";
 }
 
 export const api = {
@@ -20,6 +34,7 @@ export const api = {
   searchCustomers: (q) => request(`/customers?search=${encodeURIComponent(q)}`),
   createCustomer: (body) => request(`/customers`, { method: "POST", body: JSON.stringify(body) }),
   updateCustomer: (id, body) => request(`/customers/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
+  deleteCustomer: (id) => request(`/customers/${id}`, { method: "DELETE" }),
 
   // Services / Products
   listServices: () => request(`/services`),

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Container, Row, Col, Card, Button, Toast, ToastContainer } from "react-bootstrap";
+import { Container, Row, Col, Card, Button, Toast, ToastContainer, Form } from "react-bootstrap";
 import { AnimatePresence, motion } from "framer-motion";
 import { api } from "./api";
 import NewOrderForm from "./components/NewOrderForm";
@@ -13,6 +13,7 @@ export default function App() {
   const [racketModels, setRacketModels] = useState([]);
   const [orders, setOrders] = useState([]);
   const [view, setView] = useState("active");
+  const [activeSearch, setActiveSearch] = useState("");
   const [editingOrderId, setEditingOrderId] = useState(null);
   const [toastMsg, setToastMsg] = useState(null);
   const editingOrderIdRef = useRef(null);
@@ -50,13 +51,21 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view]);
 
-  const activeOrders = orders.filter((o) => o.status !== "picked_up" && o.status !== "cancelled");
+  const activeOrders = orders
+    .filter((o) => o.status !== "picked_up" && o.status !== "cancelled")
+    .filter((o) => {
+      const q = activeSearch.trim().toLowerCase();
+      if (!q) return true;
+      const name = (o.customer?.name || "").toLowerCase();
+      const phone = (o.customer?.phone || "").toLowerCase();
+      return name.includes(q) || phone.includes(q);
+    });
 
   const VIEW_TITLES = { active: "Active Orders", summary: "Summary", history: "History" };
 
   return (
     <>
-      <div className="text-white py-3 px-4 d-flex justify-content-between align-items-center" style={{ background: "var(--bs-primary)" }}>
+      <div className="text-white py-3 px-4 d-flex justify-content-between align-items-center" style={{ background: "linear-gradient(90deg, #df94f7 0%, #9754fa 100%)" }}>
         <h1 className="h5 mb-0">🏸 Badminton Gallery Service Stop</h1>
         <span className="small opacity-75">stringing &amp; service orders</span>
       </div>
@@ -81,10 +90,10 @@ export default function App() {
             <Card className="p-3">
               <div className="d-flex justify-content-between align-items-center mb-3">
                 <h2 className="h6 text-muted text-uppercase mb-0">{VIEW_TITLES[view]}</h2>
-                <div className="d-flex gap-2">
-                  <Button size="sm" variant="outline-primary" onClick={() => setView("active")}>Active</Button>
-                  <Button size="sm" variant="outline-primary" onClick={() => setView("summary")}>Summary</Button>
-                  <Button size="sm" variant="outline-primary" onClick={() => setView("history")}>History</Button>
+                <div className="d-flex tab-fused">
+                  <Button size="sm" variant={view === "active" ? "primary" : "outline-primary"} onClick={() => setView("active")}>Active</Button>
+                  <Button size="sm" variant={view === "summary" ? "primary" : "outline-primary"} onClick={() => setView("summary")}>Summary</Button>
+                  <Button size="sm" variant={view === "history" ? "primary" : "outline-primary"} onClick={() => setView("history")}>History</Button>
                 </div>
               </div>
 
@@ -97,33 +106,43 @@ export default function App() {
                   transition={{ duration: 0.15 }}
                 >
                   {view === "active" && (
-                    activeOrders.length === 0
-                      ? <div className="text-muted text-center py-4">No active orders</div>
-                      : (
-                        <AnimatePresence initial={false}>
-                          {activeOrders.map((o) => (
-                            <motion.div
-                              key={o.id}
-                              initial={{ opacity: 0, y: 12 }}
-                              animate={{ opacity: 1, y: 0 }}
-                              exit={{ opacity: 0, scale: 0.96 }}
-                              transition={{ duration: 0.25, ease: "easeOut" }}
-                            >
-                              <OrderCard
-                                order={o}
-                                services={services}
-                                products={products}
-                                racketModels={racketModels}
-                                onNewRacketModel={handleNewRacketModel}
-                                onRefresh={refreshOrders}
-                                onToast={showToast}
-                                editing={setEditingOrderId}
-                                isEditing={editingOrderId === o.id}
-                              />
-                            </motion.div>
-                          ))}
-                        </AnimatePresence>
-                      )
+                    <>
+                      <Form.Control
+                        className="mb-3"
+                        placeholder="Search active orders by customer name or phone..."
+                        value={activeSearch}
+                        onChange={(e) => setActiveSearch(e.target.value)}
+                      />
+                      {activeOrders.length === 0
+                        ? <div className="text-muted text-center py-4">
+                            {activeSearch ? `No matching active orders for "${activeSearch}"` : "No active orders"}
+                          </div>
+                        : (
+                          <AnimatePresence initial={false}>
+                            {activeOrders.map((o) => (
+                              <motion.div
+                                key={o.id}
+                                initial={{ opacity: 0, y: 12 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, scale: 0.96 }}
+                                transition={{ duration: 0.25, ease: "easeOut" }}
+                              >
+                                <OrderCard
+                                  order={o}
+                                  services={services}
+                                  products={products}
+                                  racketModels={racketModels}
+                                  onNewRacketModel={handleNewRacketModel}
+                                  onRefresh={refreshOrders}
+                                  onToast={showToast}
+                                  editing={setEditingOrderId}
+                                  isEditing={editingOrderId === o.id}
+                                />
+                              </motion.div>
+                            ))}
+                          </AnimatePresence>
+                        )}
+                    </>
                   )}
 
                   {view === "summary" && <Summary />}

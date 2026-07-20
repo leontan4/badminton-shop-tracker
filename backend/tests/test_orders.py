@@ -56,7 +56,7 @@ def service_id(client):
 @pytest.fixture
 def customer_id(client):
     res = client.post(
-        "/customers", json={"name": "Test Customer", "phone": "6519557275"}
+        "/customers", json={"name": "Test Customer", "phone": "6467788998"}
     )
     return res.json()["id"]
 
@@ -66,21 +66,41 @@ def customer_id(client):
 # ---------------------------------------------------------------------------
 def test_phone_normalized_on_create(client):
     res = client.post(
-        "/customers", json={"name": "Messy Phone", "phone": "(651) 955-7275"}
+        "/customers", json={"name": "Messy Phone", "phone": "(646) 778-8998"}
     )
-    assert res.json()["phone"] == "+16519557275"
+    assert res.json()["phone"] == "+16467788998"
+
+
+def test_phone_too_short_rejected(client):
+    res = client.post("/customers", json={"name": "Bad Phone", "phone": "6521"})
+    assert res.status_code == 422
+
+
+def test_invalid_email_rejected(client):
+    res = client.post(
+        "/customers", json={"name": "Bad Email", "phone": "6467788998", "email": "notanemail"}
+    )
+    assert res.status_code == 422
+
+
+def test_valid_email_accepted(client):
+    res = client.post(
+        "/customers", json={"name": "Good Email", "phone": "6519557276", "email": "real@example.com"}
+    )
+    assert res.status_code == 200
+    assert res.json()["email"] == "real@example.com"
 
 
 def test_phone_with_existing_country_code_preserved(client):
     res = client.post(
-        "/customers", json={"name": "Already Good", "phone": "+16519557275"}
+        "/customers", json={"name": "Already Good", "phone": "+16467788998"}
     )
-    assert res.json()["phone"] == "+16519557275"
+    assert res.json()["phone"] == "+16467788998"
 
 
 def test_duplicate_phone_rejected(client):
-    client.post("/customers", json={"name": "First", "phone": "6519557275"})
-    res = client.post("/customers", json={"name": "Second", "phone": "(651) 955-7275"})
+    client.post("/customers", json={"name": "First", "phone": "6467788998"})
+    res = client.post("/customers", json={"name": "Second", "phone": "(646) 778-8998"})
     assert res.status_code == 400
 
 
@@ -212,7 +232,27 @@ def test_cannot_revert_order_not_ready(client, customer_id, service_id):
 def test_update_customer_partial(client, customer_id):
     res = client.patch(f"/customers/{customer_id}", json={"name": "Fixed Name"})
     assert res.json()["name"] == "Fixed Name"
-    assert res.json()["phone"] == "+16519557275"  # unchanged
+    assert res.json()["phone"] == "+16467788998"  # unchanged
+
+
+def test_delete_customer_with_no_orders_succeeds(client, customer_id):
+    res = client.delete(f"/customers/{customer_id}")
+    assert res.status_code == 200
+    # Confirm they're actually gone
+    res2 = client.get(f"/customers/{customer_id}")
+    assert res2.status_code == 404
+
+
+def test_delete_customer_with_orders_blocked(client, customer_id, service_id):
+    client.post(
+        "/orders",
+        json={"customer_id": customer_id, "items": [{"service_id": service_id, "price_charged": 30.0}]},
+    )
+    res = client.delete(f"/customers/{customer_id}")
+    assert res.status_code == 400
+    # Confirm they still exist
+    res2 = client.get(f"/customers/{customer_id}")
+    assert res2.status_code == 200
 
 
 def test_update_order_items_recomputes_total(client, customer_id, service_id):

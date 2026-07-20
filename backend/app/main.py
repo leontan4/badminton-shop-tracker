@@ -74,6 +74,31 @@ def update_customer(
     return customer
 
 
+@app.delete("/customers/{customer_id}")
+def delete_customer(customer_id: int, db: Session = Depends(get_db)):
+    """
+    Deletes a customer -- but only if they have zero orders. Unlike order
+    cancellation (which is deliberately a soft-cancel to preserve revenue
+    history), a customer with real order history should never be hard-
+    deleted, since that would corrupt past revenue/analytics data tied to
+    them. This only exists to clean up genuine mistakes (e.g. an
+    accidental duplicate customer created with no orders yet).
+    """
+    customer = db.query(models.Customer).get(customer_id)
+    if not customer:
+        raise HTTPException(404, "Customer not found")
+    order_count = db.query(models.Order).filter(models.Order.customer_id == customer_id).count()
+    if order_count > 0:
+        raise HTTPException(
+            400,
+            f"Cannot delete '{customer.name}' -- they have {order_count} order(s) on record. "
+            "Deleting them would corrupt that order/revenue history.",
+        )
+    db.delete(customer)
+    db.commit()
+    return {"deleted": True, "customer_id": customer_id}
+
+
 # ---------------------------------------------------------------------------
 # Services (the labor catalog, e.g. Stringing -> $30)
 # ---------------------------------------------------------------------------

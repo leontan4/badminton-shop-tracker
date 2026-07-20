@@ -10,8 +10,8 @@ html {
 }
 
 :root {
-  --bs-primary: #1f5e42;         /* court green -- was Bootstrap blue */
-  --bs-primary-rgb: 31, 94, 66;
+  --bs-primary: #9754fa;         /* shop's brand purple, sampled from badmintongallery.us */
+  --bs-primary-rgb: 151, 84, 250;
   --bs-secondary: #6b6f6a;
   --bs-secondary-rgb: 107, 111, 106;
   --bs-danger: #a13b2f;
@@ -27,7 +27,7 @@ html {
 .btn-primary {
   --bs-btn-bg: var(--bs-primary);
   --bs-btn-border-color: var(--bs-primary);
-  --bs-btn-hover-bg: #17452f;
+  --bs-btn-hover-bg: #7a3fd4;
   --bs-btn-hover-border-color: #17452f;
 }
 
@@ -44,7 +44,7 @@ html {
    #eaf3ee highlight, and note: Bootstrap doesn't ship a dashed-border
    utility by default, so these are custom rather than stock classes. */
 .bg-mint {
-  background-color: #eaf3ee !important;
+  background-color: #f3e8fd !important;
 }
 .border-dashed {
   border: 1px dashed var(--bs-primary) !important;
@@ -95,12 +95,54 @@ html {
 }
 
 .dropdown-item:hover, .dropdown-item:focus {
-  background-color: #eaf3ee;
+  background-color: #f3e8fd;
   color: var(--bs-primary);
 }
 .dropdown-item.text-danger:hover, .dropdown-item.text-danger:focus {
   background-color: #fbeaea;
   color: var(--bs-danger) !important;
+}
+
+/* Bubble-style tabs (2-button toggle, e.g. Find Customer / New Customer) --
+   separate rounded pills, works well for a simple binary choice. */
+.tab-group .btn {
+  border-radius: 20px !important;
+  margin: 0 3px;
+  font-weight: 600;
+}
+.tab-group .btn:first-child {
+  margin-left: 0;
+}
+.tab-group .btn:last-child {
+  margin-right: 0;
+}
+
+/* Fused segmented-control tabs (3+ options, e.g. Active/Summary/History,
+   All/Fulfilled/Cancelled) -- one connected pill instead of separate
+   bubbles, which reads better once there are 3+ choices side by side. */
+.tab-fused {
+  display: inline-flex;
+  border-radius: 20px;
+  overflow: hidden;
+  border: 1px solid var(--bs-primary);
+}
+.tab-fused .btn {
+  border-radius: 0 !important;
+  border: none !important;
+  border-right: 1px solid rgba(31, 94, 66, 0.3) !important;
+  margin: 0 !important;
+  font-weight: 600;
+}
+.tab-fused .btn:last-child {
+  border-right: none !important;
+}
+
+/* Tabs shouldn't lift/shadow on hover like regular action buttons do --
+   just a subtle background shift feels right for a tab switcher. */
+.tab-group .btn:hover:not(:disabled),
+.tab-fused .btn:hover:not(:disabled) {
+  transform: none !important;
+  box-shadow: none !important;
 }
 
 /* Customer search results -- hover feedback so it's clear the row is
@@ -110,7 +152,7 @@ html {
   cursor: pointer;
 }
 .cust-result-row:hover {
-  background-color: #f0f5f2;
+  background-color: #f8f0fe;
 }
 .cust-info {
   pointer-events: none; /* clicks pass through to the row itself now */

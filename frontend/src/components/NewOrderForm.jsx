@@ -6,6 +6,7 @@ import CustomerSearch from "./CustomerSearch";
 import { api } from "../api";
 
 export default function NewOrderForm({ services, products, racketModels, onNewRacketModel, onOrderCreated, onToast }) {
+  const [tab, setTab] = useState("search"); // "search" | "new" -- lifted here so Line items can hide during "new"
   const [customer, setCustomer] = useState(null);
   const [lines, setLines] = useState([]);
   const [lineData, setLineData] = useState({});
@@ -16,6 +17,13 @@ export default function NewOrderForm({ services, products, racketModels, onNewRa
   function selectCustomer(c) {
     setCustomer(c);
     if (lines.length === 0) addLine();
+  }
+
+  function clearSelection() {
+    setCustomer(null);
+    setLines([]);
+    setLineData({});
+    setReviewing(false);
   }
 
   function addLine() {
@@ -96,50 +104,63 @@ export default function NewOrderForm({ services, products, racketModels, onNewRa
 
   return (
     <>
-      <CustomerSearch selectedCustomer={customer} onSelect={selectCustomer} onToast={onToast} />
+      <CustomerSearch tab={tab} setTab={setTab} selectedCustomer={customer} onSelect={selectCustomer} onClearSelection={clearSelection} onToast={onToast} />
 
-      {customer && lines.length > 0 && (
+      {customer && tab === "search" && (
         <div className="mt-3">
           <Form.Label>Line items</Form.Label>
-          <AnimatePresence initial={false}>
-            {lines.map((id) => (
-              <motion.div
-                key={id}
-                layout
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: "auto" }}
-                exit={{ opacity: 0, height: 0 }}
-                transition={{ duration: 0.2 }}
-              >
-                <LineItemRow
-                  services={services}
-                  products={products}
-                  racketModels={racketModels}
-                  onChange={(d) => updateLine(id, d)}
-                  onRemove={() => removeLine(id)}
-                  onNewRacketModel={onNewRacketModel}
-                />
-              </motion.div>
-            ))}
-          </AnimatePresence>
-          <Button size="sm" variant="secondary" onClick={addLine}>+ Add line</Button>
 
-          <hr />
-          <div className="d-flex justify-content-between align-items-center">
-            <strong>Total: ${total.toFixed(2)}</strong>
-            <Button onClick={() => setReviewing(true)}>Create Order</Button>
-          </div>
+          {lines.length === 0 ? (
+            // The bug this replaces: previously, deleting the only line
+            // item hid this whole section entirely (including the "+ Add
+            // line" button), leaving no way to add another. Now this
+            // empty state always offers a clear way back in.
+            <Button variant="outline-primary" className="w-100 py-3" onClick={addLine}>
+              + Add Line Item
+            </Button>
+          ) : (
+            <>
+              <AnimatePresence initial={false}>
+                {lines.map((id) => (
+                  <motion.div
+                    key={id}
+                    layout
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    <LineItemRow
+                      services={services}
+                      products={products}
+                      racketModels={racketModels}
+                      onChange={(d) => updateLine(id, d)}
+                      onRemove={() => removeLine(id)}
+                      onNewRacketModel={onNewRacketModel}
+                    />
+                  </motion.div>
+                ))}
+              </AnimatePresence>
+              <Button size="sm" variant="secondary" onClick={addLine}>+ Add line</Button>
 
-          {reviewing && (
-            <Card className="mt-3 p-2 bg-mint border-dashed">
-              <strong>Confirm this order:</strong>
-              <div>{customer.name}</div>
-              <div>Total: ${total.toFixed(2)}</div>
-              <div className="mt-2 d-flex gap-2">
-                <Button size="sm" disabled={submitting} onClick={submit}>Confirm & Create</Button>
-                <Button size="sm" variant="secondary" onClick={() => setReviewing(false)}>Back, keep editing</Button>
+              <hr />
+              <div className="d-flex justify-content-between align-items-center">
+                <strong>Total: ${total.toFixed(2)}</strong>
+                <Button onClick={() => setReviewing(true)}>Create Order</Button>
               </div>
-            </Card>
+
+              {reviewing && (
+                <Card className="mt-3 p-2 bg-mint border-dashed">
+                  <strong>Confirm this order:</strong>
+                  <div>{customer.name}</div>
+                  <div>Total: ${total.toFixed(2)}</div>
+                  <div className="mt-2 d-flex gap-2">
+                    <Button size="sm" disabled={submitting} onClick={submit}>Confirm & Create</Button>
+                    <Button size="sm" variant="secondary" onClick={() => setReviewing(false)}>Back, keep editing</Button>
+                  </div>
+                </Card>
+              )}
+            </>
           )}
         </div>
       )}

@@ -1,7 +1,26 @@
 from pydantic import BaseModel, field_validator
-from .phone_utils import normalize_phone_us
 from typing import Optional, List
 from datetime import datetime
+import re
+from .phone_utils import normalize_phone_us
+
+US_PHONE_PATTERN = re.compile(r"^\+1\d{10}$")
+EMAIL_PATTERN = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
+
+
+def _validate_us_phone(v: str) -> str:
+    normalized = normalize_phone_us(v)
+    if not US_PHONE_PATTERN.match(normalized):
+        raise ValueError(
+            f"'{v}' isn't a valid US phone number -- needs exactly 10 digits"
+        )
+    return normalized
+
+
+def _validate_email(v: Optional[str]) -> Optional[str]:
+    if v and not EMAIL_PATTERN.match(v):
+        raise ValueError(f"'{v}' doesn't look like a valid email address")
+    return v
 
 
 # ---------- Customer ----------
@@ -14,15 +33,13 @@ class CustomerCreate(BaseModel):
     @field_validator("phone")
     @classmethod
     def normalize_phone(cls, v: str) -> str:
-        return normalize_phone_us(v)
+        return _validate_us_phone(v)
 
+    @field_validator("email")
+    @classmethod
+    def check_email(cls, v: Optional[str]) -> Optional[str]:
+        return _validate_email(v)
 
-class CustomerOut(CustomerCreate):
-    id: int
-    created_at: datetime
-
-    class Config:
-        from_attributes = True
 
 class CustomerUpdate(BaseModel):
     name: Optional[str] = None
@@ -33,7 +50,21 @@ class CustomerUpdate(BaseModel):
     @field_validator("phone")
     @classmethod
     def normalize_phone(cls, v: Optional[str]) -> Optional[str]:
-        return normalize_phone_us(v) if v else v
+        return _validate_us_phone(v) if v else v
+
+    @field_validator("email")
+    @classmethod
+    def check_email(cls, v: Optional[str]) -> Optional[str]:
+        return _validate_email(v)
+
+
+class CustomerOut(CustomerCreate):
+    id: int
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
 
 # ---------- Service ----------
 class ServiceCreate(BaseModel):
@@ -101,9 +132,9 @@ class OrderOut(BaseModel):
     created_at: datetime
     ready_at: Optional[datetime] = None
     picked_up_at: Optional[datetime] = None
+    cancelled_at: Optional[datetime] = None
     items: List[OrderItemOut] = []
     customer: Optional[CustomerOut] = None
-    cancelled_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True
