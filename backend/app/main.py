@@ -1,10 +1,10 @@
+from collections import defaultdict
+from datetime import datetime, timedelta
 from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from datetime import datetime
 from typing import List, Optional
-from collections import defaultdict
-from datetime import datetime, timedelta
 
 from . import models, schemas
 from .database import engine, get_db
@@ -225,6 +225,12 @@ def send_notification(order_id: int, db: Session = Depends(get_db)):
 
 @app.patch("/orders/{order_id}/revert-ready", response_model=schemas.OrderOut)
 def revert_ready(order_id: int, db: Session = Depends(get_db)):
+    """
+    Safety valve for an accidental "Confirm & Send": moves the order back
+    to in_progress. This does NOT un-send any SMS that already reached the
+    customer's phone -- that's not technically possible -- it only fixes
+    the internal record so staff can keep working on the order.
+    """
     order = _get_order_or_404(order_id, db)
     if order.status != "ready":
         raise HTTPException(400, f"Order is '{order.status}', cannot revert")
@@ -233,6 +239,7 @@ def revert_ready(order_id: int, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(order)
     return order
+
 
 @app.patch("/orders/{order_id}/pickup", response_model=schemas.OrderOut)
 def pickup_order(order_id: int, db: Session = Depends(get_db)):
@@ -313,11 +320,38 @@ def delete_order(order_id: int, db: Session = Depends(get_db)):
     send_owner_email(f"Order #{order.id} cancelled", order)
     return order
 
+
+@app.patch("/orders/{order_id}/uncancel", response_model=schemas.OrderOut)
+def uncancel_order(order_id: int, db: Session = Depends(get_db)):
+    """
+    Restores a cancelled order back to active. Since we don't track what
+    stage it was at before cancellation (only that it WAS cancelled),
+    this always restores to "dropped_off" -- the safe, simple starting
+    point. If it was actually further along, staff can click "Start job"
+    again to move it forward.
+    """
+    order = _get_order_or_404(order_id, db)
+    if order.status != "cancelled":
+        raise HTTPException(400, f"Order is '{order.status}', not cancelled")
+    order.status = "dropped_off"
+    order.cancelled_at = None
+    db.commit()
+    db.refresh(order)
+    return order
+
+
 @app.get("/analytics/summary")
 def analytics_summary(weeks: int = 8, db: Session = Depends(get_db)):
     """
     Weekly revenue (grouped by when each order was CREATED, not picked up)
     plus the most-used strings/grips/racket models over the same window.
+
+    Two revenue numbers per week, deliberately kept separate:
+    - created_total: value of everything created that week, any status
+      (including later-cancelled orders -- shows total business initiated)
+    - completed_total: of that same week's orders, how much actually got
+      picked up (fulfilled) -- may keep rising for a few weeks after the
+      week itself as older orders finally get picked up
     """
     cutoff = datetime.utcnow() - timedelta(weeks=weeks)
     orders = db.query(models.Order).filter(models.Order.created_at >= cutoff).all()
@@ -336,6 +370,7 @@ def analytics_summary(weeks: int = 8, db: Session = Depends(get_db)):
 
     weekly_list = [{"week_start": k, **v} for k, v in sorted(weekly.items())]
 
+    # Exclude cancelled orders' items -- that string/grip wasn't actually used.
     items = (
         db.query(models.OrderItem)
         .join(models.Order)
@@ -363,6 +398,7 @@ def analytics_summary(weeks: int = 8, db: Session = Depends(get_db)):
         "top_grips": top_n(grip_counts),
         "top_racket_models": top_n(racket_counts),
     }
+
 
 @app.get("/")
 def root():

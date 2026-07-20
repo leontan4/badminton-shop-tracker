@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Form, Button, ListGroup, Alert, Card } from "react-bootstrap";
+import { Form, Button, ListGroup, Alert, Card, Collapse } from "react-bootstrap";
 import { api } from "../api";
 
 export default function CustomerSearch({ selectedCustomer, onSelect, onToast }) {
@@ -80,15 +80,22 @@ export default function CustomerSearch({ selectedCustomer, onSelect, onToast }) 
       {results && results.length > 0 && !editingCustomer && (
         <ListGroup className="mt-2">
           {results.map((c) => (
-            <ListGroup.Item key={c.id} className="d-flex justify-content-between align-items-center cust-result-row">
-              <span
-                className="cust-info"
-                onClick={() => { onSelect(c); setResults(null); setQuery(""); }}
-              >
+            <ListGroup.Item
+              key={c.id}
+              className="d-flex justify-content-between align-items-center cust-result-row"
+              onClick={() => { onSelect(c); setResults(null); setQuery(""); }}
+            >
+              <span className="cust-info">
                 {c.name} — {c.phone}
               </span>
-              <Button size="sm" variant="outline-secondary" onClick={() => setEditingCustomer({ ...c })}>Edit</Button>
-          </ListGroup.Item>
+              <Button
+                size="sm"
+                variant="outline-secondary"
+                onClick={(e) => { e.stopPropagation(); setEditingCustomer({ ...c }); }}
+              >
+                Edit
+              </Button>
+            </ListGroup.Item>
           ))}
         </ListGroup>
       )}
@@ -135,25 +142,27 @@ export default function CustomerSearch({ selectedCustomer, onSelect, onToast }) 
         </Button>
       </div>
 
-      {showNewForm && (
-        <Card className="mt-2 p-2">
-          <Form.Label>Name <span className="text-danger">*</span></Form.Label>
-          <Form.Control value={newCust.name} onChange={(e) => setNewCust({ ...newCust, name: e.target.value })} />
-          <Form.Label className="mt-2">Phone (US only for now) <span className="text-danger">*</span></Form.Label>
-          <div className="d-flex gap-2">
-            <span className="input-group-text">+1</span>
-            <Form.Control placeholder="6519557275" value={newCust.phone} onChange={(e) => setNewCust({ ...newCust, phone: e.target.value })} />
-          </div>
-          <Form.Label className="mt-2">Email (optional)</Form.Label>
-          <Form.Control type="email" value={newCust.email} onChange={(e) => setNewCust({ ...newCust, email: e.target.value })} />
-          <Form.Label className="mt-2">Notes (optional)</Form.Label>
-          <Form.Control value={newCust.notes} onChange={(e) => setNewCust({ ...newCust, notes: e.target.value })} />
-          <div className="mt-2 d-flex gap-2">
-            <Button size="sm" onClick={saveNewCustomer}>Save Customer</Button>
-            <Button size="sm" variant="secondary" onClick={() => setShowNewForm(false)}>Cancel</Button>
-          </div>
-        </Card>
-      )}
+      <Collapse in={showNewForm}>
+        <div>
+          <Card className="mt-2 p-2">
+            <Form.Label>Name <span className="text-danger">*</span></Form.Label>
+            <Form.Control value={newCust.name} onChange={(e) => setNewCust({ ...newCust, name: e.target.value })} />
+            <Form.Label className="mt-2">Phone (US only for now) <span className="text-danger">*</span></Form.Label>
+            <div className="d-flex gap-2">
+              <span className="input-group-text">+1</span>
+              <Form.Control placeholder="6519557275" value={newCust.phone} onChange={(e) => setNewCust({ ...newCust, phone: e.target.value })} />
+            </div>
+            <Form.Label className="mt-2">Email (optional)</Form.Label>
+            <Form.Control type="email" value={newCust.email} onChange={(e) => setNewCust({ ...newCust, email: e.target.value })} />
+            <Form.Label className="mt-2">Notes (optional)</Form.Label>
+            <Form.Control value={newCust.notes} onChange={(e) => setNewCust({ ...newCust, notes: e.target.value })} />
+            <div className="mt-2 d-flex gap-2">
+              <Button size="sm" onClick={saveNewCustomer}>Save Customer</Button>
+              <Button size="sm" variant="secondary" onClick={() => setShowNewForm(false)}>Cancel</Button>
+            </div>
+          </Card>
+        </div>
+      </Collapse>
     </>
   );
 }

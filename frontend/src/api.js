@@ -38,6 +38,7 @@ export const api = {
   revertReady: (id) => request(`/orders/${id}/revert-ready`, { method: "PATCH" }),
   pickupOrder: (id) => request(`/orders/${id}/pickup`, { method: "PATCH" }),
   cancelOrder: (id) => request(`/orders/${id}`, { method: "DELETE" }),
+  uncancelOrder: (id) => request(`/orders/${id}/uncancel`, { method: "PATCH" }),
 
   // Analytics
   analyticsSummary: (weeks = 8) => request(`/analytics/summary?weeks=${weeks}`),

@@ -54,9 +54,6 @@ export default function OrderCard({ order, services, products, racketModels, onN
         <div className="flex-grow-1" style={{ minWidth: 0 }}>
           <div className="fw-semibold">{order.customer?.name || `Customer #${order.customer_id}`}</div>
           <div className="text-muted small">Order #{order.id} · ${order.total_price.toFixed(2)} · {order.customer?.phone}</div>
-          <div className="text-muted small mt-1">
-            {order.items.map((i, idx) => <div key={idx}>{formatItemLine(i)}</div>)}
-          </div>
         </div>
         <div className="d-flex align-items-center gap-2 flex-shrink-0 ms-2">
           <span className={`badge badge-${order.status}`}>{STATUS_LABEL[order.status]}</span>
@@ -72,11 +69,16 @@ export default function OrderCard({ order, services, products, racketModels, onN
         </div>
       </div>
 
+      {/* Full card width now, not squeezed by the badge/menu column above */}
+      <div className="text-muted small mt-1">
+        {order.items.map((i, idx) => <div key={idx}>{formatItemLine(i)}</div>)}
+      </div>
+
       <Collapse in={order.status === "ready_pending_confirm"}>
         <div>
           <div className="mt-2 p-2 bg-mint border-dashed rounded small">
             Will text <strong>{order.customer?.phone}</strong>:<br />
-            <em>"Hi {order.customer?.name}, your racket(s) (order #{order.id}) is ready for pickup! See you soon."</em>
+            <em>"Hi {order.customer?.name}, your racket (order #{order.id}) is ready for pickup! See you soon."</em>
           </div>
         </div>
       </Collapse>
