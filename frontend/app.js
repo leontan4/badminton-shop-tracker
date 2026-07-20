@@ -1,4 +1,10 @@
-const API = "http://localhost:8000";
+// Locally (opening index.html directly, or via localhost) we hit the
+// backend directly on its own port. Once deployed behind Caddy on a real
+// domain, requests go to the same origin the page was loaded from, and
+// Caddy reverse-proxies them to the backend internally.
+const API = (window.location.hostname === "localhost" || window.location.protocol === "file:")
+  ? "http://localhost:8000"
+  : "";
 let services = [];
 let products = [];
 let racketModels = [];
@@ -510,12 +516,24 @@ async function loadOrders() {
           <button class="danger" onclick="deleteOrder(${o.id})">Cancel order</button>
         ` : ""}
       </div>
-      <div id="editItems-${o.id}"></div>
+      <div id="editItems-${o.id}" class="collapsible"><div class="collapsible-inner"></div></div>
     </div>
   `).join("");
 }
 
 let editingOrderId = null;
+
+function closeEditItems(orderId) {
+  const outer = document.getElementById(`editItems-${orderId}`);
+  outer.classList.remove("open");
+  editingOrderId = null;
+  // Clear the content after the collapse animation finishes, not before --
+  // clearing immediately would make it vanish instantly instead of shrinking.
+  setTimeout(() => {
+    const inner = outer.querySelector(".collapsible-inner");
+    if (inner) inner.innerHTML = "";
+  }, 250);
+}
 
 function startEditItems(orderId) {
   editingOrderId = orderId;
@@ -545,17 +563,19 @@ function startEditItems(orderId) {
       </div>
     `;
 
-    const container = document.getElementById(`editItems-${orderId}`);
+    const outer = document.getElementById(`editItems-${orderId}`);
+    const container = outer.querySelector(".collapsible-inner");
     container.innerHTML = `
       <div style="margin-top:10px; padding:10px; border:1px dashed var(--court-green); border-radius:6px; background:#eaf3ee;">
         <div id="editLines-${orderId}">${order.items.map(lineHtml).join("")}</div>
         <button type="button" class="secondary" onclick="document.getElementById('editLines-${orderId}').insertAdjacentHTML('beforeend', document.getElementById('editLines-${orderId}').children[0].outerHTML)">+ Add line</button>
         <div class="row" style="margin-top:8px;">
           <button onclick="saveEditItems(${orderId})">Save</button>
-          <button class="secondary" onclick="document.getElementById('editItems-${orderId}').innerHTML=''; editingOrderId=null;">Cancel</button>
+          <button class="secondary" onclick="closeEditItems(${orderId})">Cancel</button>
         </div>
       </div>
     `;
+    outer.classList.add("open"); // triggers the smooth expand
 
     // Pre-fill each line: service selection triggers the sub-fields to
     // appear and the type select to populate; then set the specific
@@ -625,9 +645,8 @@ async function saveEditItems(orderId) {
   });
   if (!res.ok) { showToast("Could not update -- order may already be marked ready"); return; }
   showToast("Order updated");
-  editingOrderId = null;
-  document.getElementById(`editItems-${orderId}`).innerHTML = "";
-  loadOrders();
+  closeEditItems(orderId);
+  setTimeout(loadOrders, 260);  // wait for the collapse animation to finish first
 }
 
 // ---------------- View switching (Active / Summary / History) ----------------
