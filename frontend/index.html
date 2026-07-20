@@ -1,93 +1,13 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-<meta charset="UTF-8">
-<title>Shop Tracker</title>
-<link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#1f5e42">
-<link rel="apple-touch-icon" href="icons/icon-192.png">
-<link rel="stylesheet" href="style.css">
-</head>
-<body>
-
-<header>
-  <h1>🏸 Shop Tracker</h1>
-  <span class="tag">stringing &amp; service orders</span>
-</header>
-
-<main>
-<div class="grid">
-
-  <!-- LEFT: New order form -->
-  <div class="panel">
-    <h2>New Order</h2>
-
-    <label>Customer</label>
-    <div class="row">
-      <input id="custSearch" placeholder="Search by name or phone..." oninput="searchCustomers()">
-    </div>
-    <div id="custResults"></div>
-    <div id="selectedCustomer" style="display:none; margin-top:8px; padding:8px; background:#eaf3ee; border-radius:6px; font-size:13px;"></div>
-
-    <div class="row" style="margin-top:10px;">
-      <button class="ghost" onclick="toggleNewCustomer()">+ New customer</button>
-    </div>
-    <div id="newCustomerForm" style="display:none; margin-top:8px;">
-      <label>Name <span style="color:var(--red);">*</span></label>
-      <input id="newCustName">
-      <label>Phone (US numbers only for now) <span style="color:var(--red);">*</span></label>
-      <div class="row" style="gap:4px;">
-        <span style="padding:8px 10px; background:var(--line); border-radius:6px; font-size:14px;">+1</span>
-        <input id="newCustPhone" placeholder="Enter your mobile number" style="flex:1;">
-      </div>
-      <!-- TODO: international support -- add a country dropdown here once
-           the shop has non-US/WhatsApp-only customers to support. -->
-      <label>Email (optional)</label>
-      <input id="newCustEmail" type="email" placeholder="Enter your email address..">
-      <label>Notes (optional)</label>
-      <input id="newCustNotes" placeholder="e.g. always wants 24 lbs, prefers text">
-      <div class="row" style="margin-top:10px;">
-        <button onclick="createCustomer()">Save Customer</button>
-        <button class="secondary" onclick="cancelNewCustomer()">Cancel</button>
-      </div>
-    </div>
-
-    <div id="lineItemsSection" style="display:none;">
-      <hr style="margin:18px 0; border:none; border-top:1px solid var(--line);">
-
-      <label>Line items</label>
-      <div id="itemLines"></div>
-      <button class="secondary" onclick="addItemLine()" type="button">+ Add line</button>
-    </div>
-
-    <hr style="margin:18px 0; border:none; border-top:1px solid var(--line);">
-    <div class="row" style="justify-content: space-between;">
-      <strong>Total: $<span id="orderTotal">0.00</span></strong>
-      <button onclick="reviewOrder()">Create Order</button>
-    </div>
-    <div id="orderReview"></div>
-  </div>
-
-  <!-- RIGHT: Order queue -->
-  <div class="panel">
-    <div class="row" style="justify-content: space-between;">
-      <h2 id="queueTitle" style="margin:0;">Active Orders</h2>
-      <div class="row" style="gap:6px;">
-        <button class="ghost" style="padding:4px 10px; font-size:11px;" onclick="showView('active')">Active</button>
-        <button class="ghost" style="padding:4px 10px; font-size:11px;" onclick="showView('summary')">Summary</button>
-        <button class="ghost" style="padding:4px 10px; font-size:11px;" onclick="showView('history')">History</button>
-      </div>
-    </div>
-    <div id="orderQueue"><div class="empty"><span class="spinner"></span>Loading...</div></div>
-    <div id="orderStats" style="display:none; margin-top:16px; border-top:1px solid var(--line); padding-top:16px;"></div>
-    <div id="orderHistory" style="display:none; margin-top:16px; border-top:1px solid var(--line); padding-top:16px;"></div>
-  </div>
-
-</div>
-</main>
-
-<div id="toast" class="toast"></div>
-
-<script src="app.js"></script>
-</body>
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>frontend-react</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
 </html>

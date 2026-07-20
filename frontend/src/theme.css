@@ -1,0 +1,117 @@
+/* Overrides Bootstrap's default theme with the badminton shop's colors.
+   Bootstrap 5.3+ reads these CSS variables directly -- no Sass build step
+   needed, just override them after Bootstrap's own CSS loads. */
+
+html {
+  /* Reserves scrollbar space permanently so switching between tabs with
+     different content heights doesn't cause a visible width "pop" when
+     the scrollbar appears/disappears. */
+  scrollbar-gutter: stable;
+}
+
+:root {
+  --bs-primary: #1f5e42;         /* court green -- was Bootstrap blue */
+  --bs-primary-rgb: 31, 94, 66;
+  --bs-secondary: #6b6f6a;
+  --bs-secondary-rgb: 107, 111, 106;
+  --bs-danger: #a13b2f;
+  --bs-danger-rgb: 161, 59, 47;
+  --bs-warning: #b8863b;
+  --bs-warning-rgb: 184, 134, 59;
+  --bs-body-bg: #f7f5f0;         /* paper */
+  --bs-body-color: #1c2321;      /* ink */
+  --bs-border-color: #dcd8cf;    /* line */
+  --bs-font-sans-serif: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+}
+
+.btn-primary {
+  --bs-btn-bg: var(--bs-primary);
+  --bs-btn-border-color: var(--bs-primary);
+  --bs-btn-hover-bg: #17452f;
+  --bs-btn-hover-border-color: #17452f;
+}
+
+.card {
+  border-color: var(--bs-border-color);
+}
+
+.navbar-brand {
+  font-weight: 600;
+}
+
+/* Light-green tint + dashed border for "special state" panels -- confirm
+   boxes, edit forms, review screens. Matches the original vanilla design's
+   #eaf3ee highlight, and note: Bootstrap doesn't ship a dashed-border
+   utility by default, so these are custom rather than stock classes. */
+.bg-mint {
+  background-color: #eaf3ee !important;
+}
+.border-dashed {
+  border: 1px dashed var(--bs-primary) !important;
+}
+
+/* Order status badges -- same palette as the original app */
+.badge-dropped_off { background-color: #eee; color: #6b6f6a; }
+.badge-in_progress { background-color: #fdf1de; color: #b8863b; }
+.badge-ready_pending_confirm { background-color: #eaf3ee; color: #1f5e42; }
+.badge-ready { background-color: #1f5e42; color: white; }
+.badge-picked_up { background-color: #ddd; color: #888; }
+.badge-cancelled { background-color: #fbeaea; color: #a13b2f; }
+
+/* Button hover/press feedback -- a bit more life than Bootstrap's flat
+   default color-darken-on-hover. */
+.btn {
+  transition: transform 0.1s ease, box-shadow 0.15s ease, background-color 0.15s ease;
+}
+.btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px rgba(0,0,0,0.15);
+}
+.btn:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: none;
+}
+
+/* The "⋮" menu toggle -- a subtle circular hover background instead of
+   looking like plain static text. */
+.menu-dots-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  color: var(--bs-secondary);
+  font-size: 1.15rem;
+  line-height: 1;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+.menu-dots-toggle:hover {
+  background-color: rgba(31, 94, 66, 0.1);
+  color: var(--bs-primary);
+}
+.menu-dots-toggle::after {
+  display: none !important; /* no default Bootstrap caret arrow */
+}
+
+.dropdown-item:hover, .dropdown-item:focus {
+  background-color: #eaf3ee;
+  color: var(--bs-primary);
+}
+.dropdown-item.text-danger:hover, .dropdown-item.text-danger:focus {
+  background-color: #fbeaea;
+  color: var(--bs-danger) !important;
+}
+
+.cust-result-row {
+  transition: background-color 0.12s ease;
+}
+.cust-result-row:hover {
+  background-color: #f0f5f2;
+}
+.cust-info {
+  cursor: pointer;
+}
+.cust-result-row:hover .cust-info {
+  color: var(--bs-primary);
+}
