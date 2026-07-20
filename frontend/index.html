@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Badminton Gallery Service Stop</title>
+<title>Shop Tracker</title>
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#1f5e42">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
@@ -11,7 +11,7 @@
 <body>
 
 <header>
-  <h1>🏸 Badminton Gallery Service Stop</h1>
+  <h1>🏸 Shop Tracker</h1>
   <span class="tag">stringing &amp; service orders</span>
 </header>
 
@@ -38,10 +38,14 @@
       <label>Phone (US numbers only for now) <span style="color:var(--red);">*</span></label>
       <div class="row" style="gap:4px;">
         <span style="padding:8px 10px; background:var(--line); border-radius:6px; font-size:14px;">+1</span>
-        <input id="newCustPhone" placeholder="6519557275" style="flex:1;">
+        <input id="newCustPhone" placeholder="Enter your mobile number" style="flex:1;">
       </div>
       <!-- TODO: international support -- add a country dropdown here once
            the shop has non-US/WhatsApp-only customers to support. -->
+      <label>Email (optional)</label>
+      <input id="newCustEmail" type="email" placeholder="Enter your email address..">
+      <label>Notes (optional)</label>
+      <input id="newCustNotes" placeholder="e.g. always wants 24 lbs, prefers text">
       <div class="row" style="margin-top:10px;">
         <button onclick="createCustomer()">Save Customer</button>
         <button class="secondary" onclick="cancelNewCustomer()">Cancel</button>

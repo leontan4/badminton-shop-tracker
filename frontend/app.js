@@ -65,6 +65,10 @@ function startEditCustomer(id) {
         <span style="padding:8px 10px; background:var(--line); border-radius:6px; font-size:14px;">+1</span>
         <input id="editPhone" value="${localNumber}" style="flex:1;">
       </div>
+      <label>Email (optional)</label>
+      <input id="editEmail" type="email" value="${c.email ? c.email.replace(/"/g,"") : ""}">
+      <label>Notes (optional)</label>
+      <input id="editNotes" value="${c.notes ? c.notes.replace(/"/g,"") : ""}">
       <div class="row" style="margin-top:8px;">
         <button onclick="saveEditCustomer(${id})">Save</button>
         <button class="secondary" onclick="document.getElementById('custResults').innerHTML=''">Cancel</button>
@@ -76,9 +80,11 @@ function startEditCustomer(id) {
 async function saveEditCustomer(id) {
   const name = document.getElementById("editName").value;
   const phone = "+1" + document.getElementById("editPhone").value.replace(/\D/g, "");
+  const email = document.getElementById("editEmail").value;
+  const notes = document.getElementById("editNotes").value;
   const res = await fetch(`${API}/customers/${id}`, {
     method: "PATCH", headers: {"Content-Type": "application/json"},
-    body: JSON.stringify({ name, phone })
+    body: JSON.stringify({ name, phone, email: email || null, notes: notes || null })
   });
   if (!res.ok) {
     const err = await res.json();
@@ -110,16 +116,20 @@ function cancelNewCustomer() {
   document.getElementById("newCustomerForm").style.display = "none";
   document.getElementById("newCustName").value = "";
   document.getElementById("newCustPhone").value = "";
+  document.getElementById("newCustEmail").value = "";
+  document.getElementById("newCustNotes").value = "";
 }
 
 async function createCustomer() {
   const name = document.getElementById("newCustName").value;
   const localNumber = document.getElementById("newCustPhone").value;
+  const email = document.getElementById("newCustEmail").value;
+  const notes = document.getElementById("newCustNotes").value;
   if (!name || !localNumber) { showToast("Name and phone are required"); return; }
   const phone = "+1" + localNumber.replace(/\D/g, "");
   const res = await fetch(`${API}/customers`, {
     method: "POST", headers: {"Content-Type": "application/json"},
-    body: JSON.stringify({name, phone})
+    body: JSON.stringify({ name, phone, email: email || null, notes: notes || null })
   });
   if (!res.ok) {
     const err = await res.json();
@@ -131,6 +141,8 @@ async function createCustomer() {
   document.getElementById("newCustomerForm").style.display = "none";
   document.getElementById("newCustName").value = "";
   document.getElementById("newCustPhone").value = "";
+  document.getElementById("newCustEmail").value = "";
+  document.getElementById("newCustNotes").value = "";
   showToast("Customer created");
 }
 
@@ -686,6 +698,7 @@ async function loadStats() {
 }
 
 // ---------------- Order history ----------------
+
 async function loadHistory() {
   const [pickedUpRes, cancelledRes] = await Promise.all([
     fetch(`${API}/orders?status=picked_up`),
