@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Button, Dropdown, Modal, Collapse } from "react-bootstrap";
 import EditItemsPanel from "./EditItemsPanel";
 import { api } from "../api";
+import { timeAgo } from "../utils/dates";
 
 const STATUS_LABEL = {
   dropped_off: "Dropped off",
@@ -71,6 +72,11 @@ export default function OrderCard({ order, services, products, racketModels, onN
 
       {/* Full card width now, not squeezed by the badge/menu column above */}
       <div className="text-muted small mt-1">
+        {order.status === "ready" || order.status === "ready_pending_confirm"
+          ? `Ready ${timeAgo(order.ready_at || order.created_at)}`
+          : `Dropped off ${timeAgo(order.created_at)}`}
+      </div>
+      <div className="text-muted small">
         {order.items.map((i, idx) => <div key={idx}>{formatItemLine(i)}</div>)}
       </div>
 

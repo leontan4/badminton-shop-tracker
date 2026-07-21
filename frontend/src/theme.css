@@ -145,8 +145,19 @@ html {
   box-shadow: none !important;
 }
 
-/* Customer search results -- hover feedback so it's clear the row is
-   clickable, not just relying on cursor position. */
+/* Modal headers -- reuses the same brand gradient as the top nav bar,
+   so the title bar reads as a distinct "header" instead of blending
+   into the white body below it. */
+.modal-header-brand {
+  background: linear-gradient(90deg, #df94f7 0%, #9754fa 100%);
+  border-bottom: none;
+}
+.modal-header-brand .modal-title {
+  color: white;
+}
+.modal-header-brand .btn-close {
+  filter: invert(1) grayscale(100%) brightness(2); /* white X on the gradient */
+}
 .cust-result-row {
   transition: background-color 0.12s ease;
   cursor: pointer;
