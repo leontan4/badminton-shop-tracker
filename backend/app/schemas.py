@@ -1,4 +1,4 @@
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, field_validator, Field
 from typing import Optional, List
 from datetime import datetime
 import re
@@ -23,12 +23,23 @@ def _validate_email(v: Optional[str]) -> Optional[str]:
     return v
 
 
+def _validate_nonblank_name(v: str) -> str:
+    if not v or not v.strip():
+        raise ValueError("Name can't be blank")
+    return v.strip()
+
+
 # ---------- Customer ----------
 class CustomerCreate(BaseModel):
     name: str
     phone: str
     email: Optional[str] = None
     notes: Optional[str] = None
+
+    @field_validator("name")
+    @classmethod
+    def check_name(cls, v: str) -> str:
+        return _validate_nonblank_name(v)
 
     @field_validator("phone")
     @classmethod
@@ -46,6 +57,11 @@ class CustomerUpdate(BaseModel):
     phone: Optional[str] = None
     email: Optional[str] = None
     notes: Optional[str] = None
+
+    @field_validator("name")
+    @classmethod
+    def check_name(cls, v: Optional[str]) -> Optional[str]:
+        return _validate_nonblank_name(v) if v else v
 
     @field_validator("phone")
     @classmethod
@@ -69,7 +85,7 @@ class CustomerOut(CustomerCreate):
 # ---------- Service ----------
 class ServiceCreate(BaseModel):
     name: str
-    price: float
+    price: float = Field(ge=0, description="Price can't be negative")
 
 
 class ServiceOut(ServiceCreate):
@@ -84,8 +100,8 @@ class ServiceOut(ServiceCreate):
 class ProductCreate(BaseModel):
     name: str
     category: str
-    cost_to_shop: float = 0.0
-    price_to_customer: float = 0.0
+    cost_to_shop: float = Field(default=0.0, ge=0)
+    price_to_customer: float = Field(default=0.0, ge=0)
 
 
 class ProductOut(ProductCreate):
@@ -100,8 +116,8 @@ class ProductOut(ProductCreate):
 class OrderItemCreate(BaseModel):
     service_id: Optional[int] = None
     product_id: Optional[int] = None
-    quantity: int = 1
-    price_charged: float
+    quantity: int = Field(default=1, ge=1, description="Quantity must be at least 1")
+    price_charged: float = Field(ge=0, description="Price can't be negative")
     racket_model: Optional[str] = None
     string_tension: Optional[str] = None
 
@@ -119,7 +135,7 @@ class OrderItemOut(OrderItemCreate):
 class OrderCreate(BaseModel):
     customer_id: int
     notes: Optional[str] = None
-    items: List[OrderItemCreate]
+    items: List[OrderItemCreate] = Field(min_length=1, description="An order needs at least one line item")
 
 
 class OrderOut(BaseModel):

@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { ButtonGroup, Button, Form, Modal } from "react-bootstrap";
 import { AnimatePresence, motion } from "framer-motion";
 import { api } from "../api";
+import { parseBackendDate } from "../utils/dates";
 
 function formatItemLine(i) {
   const parts = [`${i.quantity}x ${i.service_name || i.product_name || "item"}`];
@@ -23,7 +24,7 @@ export default function History({ onToast }) {
 
   function loadOrders() {
     Promise.all([api.listOrders("picked_up"), api.listOrders("cancelled")]).then(([picked, cancelled]) => {
-      const combined = [...picked, ...cancelled].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+      const combined = [...picked, ...cancelled].sort((a, b) => parseBackendDate(b.created_at) - parseBackendDate(a.created_at));
       setOrders(combined);
     });
   }
@@ -101,8 +102,8 @@ export default function History({ onToast }) {
                     <div className="text-muted small">
                       Order #{o.id} · ${o.total_price.toFixed(2)} · {
                         o.status === "cancelled"
-                          ? `cancelled ${new Date(o.cancelled_at).toLocaleDateString()}`
-                          : `picked up ${new Date(o.picked_up_at).toLocaleDateString()}`
+                          ? `cancelled on ${parseBackendDate(o.cancelled_at).toLocaleDateString()}`
+                          : `picked up on ${parseBackendDate(o.picked_up_at).toLocaleDateString()}`
                       }
                     </div>
                   </div>

@@ -80,7 +80,7 @@ export default function LineItemRow({
           <Form.Control size="sm" type="number" min="1" value={quantity} onChange={(e) => setQuantity(e.target.value)} />
         </Col>
         <Col xs={2}>
-          <Form.Control size="sm" type="number" step="0.01" placeholder="price" value={price} onChange={(e) => setPrice(e.target.value)} />
+          <Form.Control size="sm" type="number" step="0.01" min="0" placeholder="price" value={price} onChange={(e) => setPrice(e.target.value)} />
         </Col>
         <Col xs={1}>
           <Button size="sm" variant="danger" onClick={onRemove}>✕</Button>

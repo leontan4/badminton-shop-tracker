@@ -1,9 +1,10 @@
 import { useState, useRef } from "react";
-import { Button, Card, Form } from "react-bootstrap";
+import { Button, Card, Form, Modal } from "react-bootstrap";
 import { AnimatePresence, motion } from "framer-motion";
 import LineItemRow from "./LineItemRow";
 import CustomerSearch from "./CustomerSearch";
 import { api } from "../api";
+import { timeAgo } from "../utils/dates";
 
 export default function NewOrderForm({ services, products, racketModels, onNewRacketModel, onOrderCreated, onToast }) {
   const [tab, setTab] = useState("search"); // "search" | "new" -- lifted here so Line items can hide during "new"
@@ -12,6 +13,7 @@ export default function NewOrderForm({ services, products, racketModels, onNewRa
   const [lineData, setLineData] = useState({});
   const [reviewing, setReviewing] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [duplicateOrder, setDuplicateOrder] = useState(null);
   const nextLineId = useRef(0);
 
   function selectCustomer(c) {
@@ -45,6 +47,8 @@ export default function NewOrderForm({ services, products, racketModels, onNewRa
     return sum + (d ? d.quantity * d.price : 0);
   }, 0);
 
+  const hasValidLine = lines.some((id) => lineData[id]?.serviceId);
+
   async function resolveItemsForSubmit() {
     const items = [];
     for (const id of lines) {
@@ -66,25 +70,30 @@ export default function NewOrderForm({ services, products, racketModels, onNewRa
     return items;
   }
 
-  async function submit() {
+  async function checkAndSubmit() {
     if (submitting) return;
     setSubmitting(true);
     try {
       const existingOrders = await api.listOrders();
-      const recentCutoff = Date.now() - 10 * 60 * 1000;
       const dup = existingOrders.find(
         (o) => o.customer_id === customer.id &&
-          ["dropped_off", "in_progress"].includes(o.status) &&
-          new Date(o.created_at).getTime() > recentCutoff
+          ["dropped_off", "in_progress"].includes(o.status)
       );
       if (dup) {
-        const minutesAgo = Math.round((Date.now() - new Date(dup.created_at).getTime()) / 60000);
-        const proceed = window.confirm(
-          `This customer already has an active order (#${dup.id}, $${dup.total_price.toFixed(2)}) created ${minutesAgo} minute(s) ago. Create another order anyway?`
-        );
-        if (!proceed) return;
+        setSubmitting(false);
+        setDuplicateOrder(dup); // opens the confirm modal below; doCreateOrder runs if they proceed
+        return;
       }
+      await doCreateOrder();
+    } catch (e) {
+      onToast(e.message);
+      setSubmitting(false);
+    }
+  }
 
+  async function doCreateOrder() {
+    setSubmitting(true);
+    try {
       const items = await resolveItemsForSubmit();
       if (items.length === 0) { onToast("Add at least one line item"); return; }
 
@@ -94,6 +103,7 @@ export default function NewOrderForm({ services, products, racketModels, onNewRa
       setLines([]);
       setLineData({});
       setReviewing(false);
+      setDuplicateOrder(null);
       onOrderCreated();
     } catch (e) {
       onToast(e.message);
@@ -146,8 +156,11 @@ export default function NewOrderForm({ services, products, racketModels, onNewRa
               <hr />
               <div className="d-flex justify-content-between align-items-center">
                 <strong>Total: ${total.toFixed(2)}</strong>
-                <Button onClick={() => setReviewing(true)}>Create Order</Button>
+                <Button disabled={!hasValidLine} onClick={() => setReviewing(true)}>Create Order</Button>
               </div>
+              {!hasValidLine && (
+                <div className="text-muted small mt-1">Select a service on at least one line to continue.</div>
+              )}
 
               {reviewing && (
                 <Card className="mt-3 p-2 bg-mint border-dashed">
@@ -155,7 +168,7 @@ export default function NewOrderForm({ services, products, racketModels, onNewRa
                   <div>{customer.name}</div>
                   <div>Total: ${total.toFixed(2)}</div>
                   <div className="mt-2 d-flex gap-2">
-                    <Button size="sm" disabled={submitting} onClick={submit}>Confirm & Create</Button>
+                    <Button size="sm" disabled={submitting} onClick={checkAndSubmit}>Confirm & Create</Button>
                     <Button size="sm" variant="secondary" onClick={() => setReviewing(false)}>Back, keep editing</Button>
                   </div>
                 </Card>
@@ -164,6 +177,24 @@ export default function NewOrderForm({ services, products, racketModels, onNewRa
           )}
         </div>
       )}
+
+      <Modal show={!!duplicateOrder} onHide={() => setDuplicateOrder(null)} centered size="sm">
+        <Modal.Header closeButton className="modal-header-brand">
+          <Modal.Title className="h6 mb-0">Uh oh! Same person?</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {duplicateOrder && (
+            <p className="mb-3">
+              <strong>{customer?.name}</strong> already has an open order (#{duplicateOrder.id}, ${duplicateOrder.total_price.toFixed(2)})
+              from <strong>{timeAgo(duplicateOrder.created_at)}</strong>. Want to create a new one anyway, or was this a mistake?
+            </p>
+          )}
+          <div className="d-flex gap-2 justify-content-end">
+            <Button size="sm" variant="secondary" onClick={() => setDuplicateOrder(null)}>Never mind</Button>
+            <Button size="sm" onClick={doCreateOrder}>Create anyway</Button>
+          </div>
+        </Modal.Body>
+      </Modal>
     </>
   );
 }
