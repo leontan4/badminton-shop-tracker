@@ -1,11 +1,13 @@
-const API_BASE =
-  window.location.hostname === "localhost" || window.location.protocol === "file:"
-    ? "http://localhost:8000"
-    : "";
+// Always relative -- in dev, Vite's proxy (see vite.config.js) forwards
+// these to the backend; in production, Caddy does the same. Either way,
+// the browser only ever sees one origin, which keeps the session cookie
+// working correctly.
+const API_BASE = "";
 
 async function request(path, options = {}) {
   const res = await fetch(`${API_BASE}${path}`, {
     headers: { "Content-Type": "application/json" },
+    credentials: "include", // sends/receives the session cookie
     ...options,
   });
   const data = await res.json().catch(() => null);
@@ -30,6 +32,11 @@ function extractErrorMessage(data) {
 }
 
 export const api = {
+  // Auth
+  login: (username, password) => request(`/auth/login`, { method: "POST", body: JSON.stringify({ username, password }) }),
+  logout: () => request(`/auth/logout`, { method: "POST" }),
+  checkAuth: () => request(`/auth/me`),
+
   // Customers
   searchCustomers: (q) => request(`/customers?search=${encodeURIComponent(q)}`),
   createCustomer: (body) => request(`/customers`, { method: "POST", body: JSON.stringify(body) }),

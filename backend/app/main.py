@@ -1,12 +1,23 @@
 from collections import defaultdict
 from datetime import datetime, timedelta
-from fastapi import FastAPI, Depends, HTTPException
+import os
+from dotenv import load_dotenv
+
+# Must run before importing our own modules below -- auth.py reads
+# SHOP_USERNAME/SHOP_PASSWORD_HASH/SECRET_KEY from the environment at
+# import time, so .env needs to already be loaded by then. Docker already
+# gets these via env_file: in docker-compose, this just makes `uv run
+# uvicorn` work the same way when running locally outside Docker.
+load_dotenv()
+
+from fastapi import FastAPI, Depends, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from datetime import datetime
 from typing import List, Optional
 
-from . import models, schemas
+from . import models, schemas, auth
 from .database import engine, get_db
 from .sms import send_ready_sms
 from .email_utils import send_owner_email
@@ -16,12 +27,68 @@ models.Base.metadata.create_all(bind=engine)
 app = FastAPI(title="Badminton Service Tracker")
 
 # Allow the frontend (served separately) to call this API during local dev.
+# allow_credentials=True + specific origins (not "*") are both required for
+# the session cookie to actually work cross-origin in dev -- browsers won't
+# send/accept cookies on credentialed requests to a wildcard origin.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
     allow_methods=["*"],
     allow_headers=["*"],
+    allow_credentials=True,
 )
+
+# Paths reachable without being logged in. Everything else requires a valid
+# session cookie -- this replaces Caddy's basicauth as the actual login gate.
+PUBLIC_PATHS = {"/", "/auth/login", "/auth/logout", "/docs", "/openapi.json", "/redoc"}
+
+
+@app.middleware("http")
+async def require_login(request: Request, call_next):
+    # Tests construct the app directly with TestClient and never log in --
+    # conftest.py sets TESTING=1 so the existing test suite doesn't need to
+    # change at all.
+    if os.environ.get("TESTING"):
+        return await call_next(request)
+    if request.method == "OPTIONS" or request.url.path in PUBLIC_PATHS:
+        return await call_next(request)
+    token = request.cookies.get(auth.SESSION_COOKIE_NAME)
+    if not auth.verify_session_token(token):
+        return JSONResponse({"detail": "Not authenticated"}, status_code=401)
+    return await call_next(request)
+
+
+# ---------------------------------------------------------------------------
+# Auth -- one shared login for the whole shop (matches the old Basic Auth
+# model), now shown as a real page instead of the browser's native popup.
+# ---------------------------------------------------------------------------
+@app.post("/auth/login")
+def login(payload: schemas.LoginRequest, response: Response):
+    if not auth.verify_credentials(payload.username, payload.password):
+        raise HTTPException(401, "Incorrect username or password")
+    response.set_cookie(
+        key=auth.SESSION_COOKIE_NAME,
+        value=auth.create_session_token(),
+        max_age=auth.SESSION_MAX_AGE_SECONDS,
+        httponly=True,
+        samesite="lax",
+        secure=False,  # TODO: set True once a real domain + HTTPS is in place
+    )
+    return {"ok": True}
+
+
+@app.post("/auth/logout")
+def logout(response: Response):
+    response.delete_cookie(auth.SESSION_COOKIE_NAME)
+    return {"ok": True}
+
+
+@app.get("/auth/me")
+def me(request: Request):
+    token = request.cookies.get(auth.SESSION_COOKIE_NAME)
+    if not auth.verify_session_token(token):
+        raise HTTPException(401, "Not authenticated")
+    return {"username": auth.SHOP_USERNAME}
 
 
 # ---------------------------------------------------------------------------
