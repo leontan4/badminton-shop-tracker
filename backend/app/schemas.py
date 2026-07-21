@@ -29,6 +29,12 @@ def _validate_nonblank_name(v: str) -> str:
     return v.strip()
 
 
+# ---------- Auth ----------
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+
 # ---------- Customer ----------
 class CustomerCreate(BaseModel):
     name: str

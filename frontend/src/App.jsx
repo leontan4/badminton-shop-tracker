@@ -6,8 +6,10 @@ import NewOrderForm from "./components/NewOrderForm";
 import OrderCard from "./components/OrderCard";
 import Summary from "./components/Summary";
 import History from "./components/History";
+import Login from "./components/Login";
 
 export default function App() {
+  const [authenticated, setAuthenticated] = useState(null); // null = checking, true/false once known
   const [services, setServices] = useState([]);
   const [products, setProducts] = useState([]);
   const [racketModels, setRacketModels] = useState([]);
@@ -38,6 +40,13 @@ export default function App() {
   }, [racketModels]);
 
   useEffect(() => {
+    api.checkAuth()
+      .then(() => setAuthenticated(true))
+      .catch(() => setAuthenticated(false));
+  }, []);
+
+  useEffect(() => {
+    if (!authenticated) return;
     (async () => {
       const allProducts = await api.listProducts();
       setProducts(allProducts.filter((p) => p.category !== "racket_model"));
@@ -50,7 +59,12 @@ export default function App() {
     }, 5000);
     return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [view]);
+  }, [view, authenticated]);
+
+  async function handleLogout() {
+    await api.logout();
+    setAuthenticated(false);
+  }
 
   const searchFilter = (o) => {
     const q = activeSearch.trim().toLowerCase();
@@ -72,11 +86,17 @@ export default function App() {
 
   const VIEW_TITLES = { active: "Active Orders", summary: "Summary", history: "History" };
 
+  if (authenticated === null) return null; // brief check on load, avoids flashing the app before we know
+  if (authenticated === false) return <Login onSuccess={() => setAuthenticated(true)} />;
+
   return (
     <>
       <div className="text-white py-3 px-4 d-flex justify-content-between align-items-center" style={{ background: "linear-gradient(90deg, #df94f7 0%, #9754fa 100%)" }}>
         <h1 className="h5 mb-0">🏸 Badminton Gallery Service Stop</h1>
-        <span className="small opacity-75">stringing &amp; service orders</span>
+        <div className="d-flex align-items-center gap-3">
+          <span className="small opacity-75">stringing &amp; service orders</span>
+          <Button size="sm" variant="outline-light" onClick={handleLogout}>Log out</Button>
+        </div>
       </div>
 
       <Container className="py-4" style={{ maxWidth: 1100 }}>
