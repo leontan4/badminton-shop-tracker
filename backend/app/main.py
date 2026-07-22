@@ -12,7 +12,7 @@ load_dotenv()
 
 from fastapi import FastAPI, Depends, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, HTMLResponse
 from sqlalchemy.orm import Session
 from datetime import datetime
 from typing import List, Optional
@@ -40,8 +40,31 @@ app.add_middleware(
 
 # Paths reachable without being logged in. Everything else requires a valid
 # session cookie -- this replaces Caddy's basicauth as the actual login gate.
-PUBLIC_PATHS = {"/", "/auth/login", "/auth/logout", "/docs", "/openapi.json", "/redoc"}
+PUBLIC_PATHS = {"/", "/auth/login", "/auth/logout", "/docs", "/openapi.json", "/redoc", "/privacy", "/terms"}
 
+PRIVACY_HTML = """
+<h1>Privacy Policy</h1>
+<p>Badminton racket service tracker — order status notifications.</p>
+<p>We do not sell or share your phone number with third parties.
+It is used solely to send you a text message when your service order is ready for pickup.</p>
+<p>Message frequency: 1-2 messages per order. Message and data rates may apply.</p>
+<p>Reply STOP to opt out at any time, or HELP for support.</p>
+"""
+
+TERMS_HTML = """
+<h1>Terms and Conditions</h1>
+<p>By providing your phone number at drop-off, you consent to receive
+SMS notifications regarding your service order status. Message and data
+rates may apply. Reply STOP to unsubscribe, HELP for help.</p>
+"""
+
+@app.get("/privacy", response_class=HTMLResponse)
+def privacy_policy():
+    return PRIVACY_HTML
+
+@app.get("/terms", response_class=HTMLResponse)
+def terms_and_conditions():
+    return TERMS_HTML
 
 @app.middleware("http")
 async def require_login(request: Request, call_next):
