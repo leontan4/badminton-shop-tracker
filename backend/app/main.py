@@ -210,13 +210,22 @@ def _validate_items(items: List[schemas.OrderItemCreate], db: Session):
     """
     Cross-checks line items against the Service table -- can't be done in the
     Pydantic schema alone since it needs to know whether the selected
-    service is actually "Stringing", not just that a tension value exists.
+    service is "Stringing" or "Grip Replacement", not just that these values
+    exist. Both services need racket_model + a real product selected; only
+    Stringing additionally needs a tension value.
     """
     for item in items:
         if not item.service_id:
             continue
         service = db.query(models.Service).get(item.service_id)
-        if service and service.name == "Stringing" and not (item.string_tension and item.string_tension.strip()):
+        if not service or service.name not in ("Stringing", "Grip Replacement"):
+            continue
+        if not (item.racket_model and item.racket_model.strip()):
+            raise HTTPException(422, f"Racket model is required for the {service.name} service")
+        if not item.product_id:
+            kind = "String type" if service.name == "Stringing" else "Grip type"
+            raise HTTPException(422, f"{kind} is required for the {service.name} service")
+        if service.name == "Stringing" and not (item.string_tension and item.string_tension.strip()):
             raise HTTPException(422, "String tension is required for the Stringing service")
 
 

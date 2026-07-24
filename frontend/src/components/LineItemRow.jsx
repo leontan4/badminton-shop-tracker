@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Form, Row, Col, Button } from "react-bootstrap";
+import { Form, Row, Col, Button, InputGroup } from "react-bootstrap";
 
 // A single line item: service + quantity + price, and (for Stringing/Grip
 // Replacement) racket model + string/grip type + tension sub-fields.
@@ -11,6 +11,7 @@ export default function LineItemRow({
   onChange,
   onRemove,
   onNewRacketModel,   // called when a brand-new racket model gets typed
+  showErrors = false, // true after a submit attempt with missing required fields
 }) {
   const [serviceId, setServiceId] = useState(initial?.service_id ?? "");
   const [quantity, setQuantity] = useState(initial?.quantity ?? 1);
@@ -48,7 +49,9 @@ export default function LineItemRow({
     onChange({
       serviceId: serviceId ? Number(serviceId) : null,
       quantity: Number(quantity) || 1,
+      quantityRaw: quantity,
       price: Number(price) || 0,
+      priceRaw: price,
       racketModel: mode ? racketModelValue : "",
       productSel: mode ? productSel : "",
       productOther: mode ? productOther : "",
@@ -67,77 +70,128 @@ export default function LineItemRow({
 
   return (
     <div className="border rounded p-2 mb-2 bg-white">
-      <Row className="g-2 align-items-center">
-        <Col xs={7}>
-          <Form.Select size="sm" value={serviceId} onChange={(e) => setServiceId(e.target.value)}>
-            <option value="">-- select --</option>
+      <div className="d-flex gap-2 align-items-center">
+        <div className="flex-grow-1">
+          <Form.Select
+            size="sm"
+            className={serviceId === "" ? "text-muted" : ""}
+            value={serviceId}
+            isInvalid={showErrors && serviceId === ""}
+            onChange={(e) => setServiceId(e.target.value)}
+          >
+            <option value="">Select service</option>
             {services.map((s) => (
               <option key={s.id} value={s.id}>{s.name}</option>
             ))}
           </Form.Select>
+        </div>
+        <Button type="button" size="sm" variant="danger" onClick={onRemove}>✕</Button>
+      </div>
+      <Row className="g-2 align-items-center mt-1">
+        <Col xs={6}>
+          <InputGroup size="sm" hasValidation>
+            <InputGroup.Text>Qty</InputGroup.Text>
+            <Form.Control
+              type="number"
+              min="1"
+              value={quantity}
+              isInvalid={showErrors && quantity === ""}
+              onChange={(e) => setQuantity(e.target.value)}
+            />
+          </InputGroup>
         </Col>
-        <Col xs={2}>
-          <Form.Control size="sm" type="number" min="1" value={quantity} onChange={(e) => setQuantity(e.target.value)} />
-        </Col>
-        <Col xs={2}>
-          <Form.Control size="sm" type="number" step="0.01" min="0" placeholder="price" value={price} onChange={(e) => setPrice(e.target.value)} />
-        </Col>
-        <Col xs={1}>
-          <Button size="sm" variant="danger" onClick={onRemove}>✕</Button>
+        <Col xs={6}>
+          <InputGroup size="sm" hasValidation>
+            <InputGroup.Text>$</InputGroup.Text>
+            <Form.Control
+              type="number"
+              step="0.01"
+              min="0"
+              value={price}
+              isInvalid={showErrors && price === ""}
+              onChange={(e) => setPrice(e.target.value)}
+            />
+          </InputGroup>
         </Col>
       </Row>
 
       {mode && (
         <>
           <Row className="g-2 mt-1">
-            <Col xs={racketModel === "__other__" ? 6 : 12}>
+            <Col xs={12} md={racketModel === "__other__" ? 6 : 12}>
               <Form.Select
                 size="sm"
+                className={racketModel === "" ? "text-muted" : ""}
                 value={racketModel}
+                isInvalid={showErrors && !racketModelValue}
                 onChange={async (e) => {
                   const val = e.target.value;
                   setRacketModel(val);
                   if (val && val !== "__other__" && onNewRacketModel) await onNewRacketModel(val);
                 }}
               >
-                <option value="">-- racket model --</option>
+                <option value="">Select racket model</option>
                 {sortedRacketModels.map((r) => (
                   <option key={r.id} value={r.name}>{r.name}</option>
                 ))}
                 <option value="__other__">Other (type manually)</option>
               </Form.Select>
+              <Form.Control.Feedback type="invalid">Required</Form.Control.Feedback>
             </Col>
             {racketModel === "__other__" && (
-              <Col xs={6}>
+              <Col xs={12} md={6}>
                 <Form.Control
                   size="sm"
                   placeholder="Type new racket model"
                   value={racketModelOther}
+                  isInvalid={showErrors && !racketModelOther.trim()}
                   onBlur={async () => { if (racketModelOther && onNewRacketModel) await onNewRacketModel(racketModelOther); }}
                   onChange={(e) => setRacketModelOther(e.target.value)}
                 />
+                <Form.Control.Feedback type="invalid">Required</Form.Control.Feedback>
               </Col>
             )}
           </Row>
 
           <Row className="g-2 mt-1">
-            <Col xs={productSel === "__other__" ? 6 : mode === "string" ? 8 : 12}>
-              <Form.Select size="sm" value={productSel} onChange={(e) => setProductSel(e.target.value)}>
-                <option value="">-- {mode === "string" ? "string type" : "grip type"} --</option>
+            <Col xs={12} md={productSel === "__other__" ? 6 : mode === "string" ? 8 : 12}>
+              <Form.Select
+                size="sm"
+                className={productSel === "" ? "text-muted" : ""}
+                value={productSel}
+                isInvalid={showErrors && !productSel}
+                onChange={(e) => setProductSel(e.target.value)}
+              >
+                <option value="">Select {mode === "string" ? "string type" : "grip type"}</option>
                 {catalog.map((p) => (
                   <option key={p.id} value={p.id}>{p.name}</option>
                 ))}
                 <option value="__other__">Other (type manually)</option>
               </Form.Select>
+              <Form.Control.Feedback type="invalid">Required</Form.Control.Feedback>
             </Col>
             {productSel === "__other__" && (
-              <Col xs={6}>
-                <Form.Control size="sm" placeholder="Type new" value={productOther} onChange={(e) => setProductOther(e.target.value)} />
+              <Col xs={12} md={6}>
+                <Form.Control
+                  size="sm"
+                  placeholder="Type new"
+                  value={productOther}
+                  isInvalid={showErrors && !productOther.trim()}
+                  onChange={(e) => setProductOther(e.target.value)}
+                />
+                <Form.Control.Feedback type="invalid">Required</Form.Control.Feedback>
               </Col>
             )}
             {mode === "string" && (
-              <Col xs={4}>
-                <Form.Control size="sm" placeholder="Tension (e.g. 24 lbs)" value={tension} onChange={(e) => setTension(e.target.value)} />
+              <Col xs={12} md={4}>
+                <Form.Control
+                  size="sm"
+                  placeholder="Tension"
+                  value={tension}
+                  onChange={(e) => setTension(e.target.value)}
+                  isInvalid={showErrors && tension.trim() === ""}
+                />
+                <Form.Control.Feedback type="invalid">Required for stringing</Form.Control.Feedback>
               </Col>
             )}
           </Row>

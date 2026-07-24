@@ -17,6 +17,7 @@ export default function CustomerSearch({ tab, setTab, selectedCustomer, onSelect
   const [editingCustomer, setEditingCustomer] = useState(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [newCust, setNewCust] = useState({ name: "", phone: "", email: "", notes: "" });
+  const [newCustErrors, setNewCustErrors] = useState({});
 
   async function search(q) {
     setQuery(q);
@@ -26,10 +27,21 @@ export default function CustomerSearch({ tab, setTab, selectedCustomer, onSelect
   }
 
   async function saveNewCustomer() {
-    if (!newCust.name || !newCust.phone) { onToast("Name and phone are required"); return; }
     const digits = newCust.phone.replace(/\D/g, "");
-    if (!isValidUsPhone(digits)) { onToast("Phone number must be exactly 10 digits"); return; }
-    if (newCust.email && !isValidEmail(newCust.email)) { onToast("Email doesn't look valid"); return; }
+    const errors = {};
+    if (!newCust.name.trim()) errors.name = "Required";
+    if (!newCust.phone.trim()) {
+      errors.phone = "Required";
+    } else if (!isValidUsPhone(digits)) {
+      errors.phone = "Must be exactly 10 digits";
+    }
+    if (newCust.email && !isValidEmail(newCust.email)) {
+      errors.email = "Doesn't look like a valid email";
+    }
+    if (Object.keys(errors).length > 0) {
+      setNewCustErrors(errors);
+      return;
+    }
     try {
       const c = await api.createCustomer({
         name: newCust.name,
@@ -39,6 +51,7 @@ export default function CustomerSearch({ tab, setTab, selectedCustomer, onSelect
       });
       onSelect(c);
       setNewCust({ name: "", phone: "", email: "", notes: "" });
+      setNewCustErrors({});
       setTab("search");
       onToast("Customer created");
     } catch (e) {
@@ -158,34 +171,36 @@ export default function CustomerSearch({ tab, setTab, selectedCustomer, onSelect
 
           {editingCustomer && (
             <Card className="mt-2 p-2 bg-mint border-dashed">
-              <Form.Label>Name</Form.Label>
-              <Form.Control
-                value={editingCustomer.name}
-                onChange={(e) => setEditingCustomer({ ...editingCustomer, name: e.target.value })}
-              />
-              <Form.Label className="mt-2">Phone</Form.Label>
-              <Form.Control
-                value={editingCustomer.phone.replace(/^\+1/, "")}
-                onChange={(e) => setEditingCustomer({ ...editingCustomer, phone: e.target.value })}
-              />
-              <Form.Label className="mt-2">Email (optional)</Form.Label>
-              <Form.Control
-                type="email"
-                value={editingCustomer.email || ""}
-                onChange={(e) => setEditingCustomer({ ...editingCustomer, email: e.target.value })}
-              />
-              <Form.Label className="mt-2">Notes (optional)</Form.Label>
-              <Form.Control
-                value={editingCustomer.notes || ""}
-                onChange={(e) => setEditingCustomer({ ...editingCustomer, notes: e.target.value })}
-              />
-              <div className="mt-2 d-flex gap-2">
-                <Button size="sm" onClick={saveEditCustomer}>Save</Button>
-                <Button size="sm" variant="secondary" onClick={() => setEditingCustomer(null)}>Cancel</Button>
-                <Button size="sm" variant="outline-danger" className="ms-auto" onClick={() => setShowDeleteConfirm(true)}>
-                  Delete Customer
-                </Button>
-              </div>
+              <Form onSubmit={(e) => { e.preventDefault(); saveEditCustomer(); }}>
+                <Form.Label>Name</Form.Label>
+                <Form.Control
+                  value={editingCustomer.name}
+                  onChange={(e) => setEditingCustomer({ ...editingCustomer, name: e.target.value })}
+                />
+                <Form.Label className="mt-2">Phone</Form.Label>
+                <Form.Control
+                  value={editingCustomer.phone.replace(/^\+1/, "")}
+                  onChange={(e) => setEditingCustomer({ ...editingCustomer, phone: e.target.value })}
+                />
+                <Form.Label className="mt-2">Email (optional)</Form.Label>
+                <Form.Control
+                  type="email"
+                  value={editingCustomer.email || ""}
+                  onChange={(e) => setEditingCustomer({ ...editingCustomer, email: e.target.value })}
+                />
+                <Form.Label className="mt-2">Notes (optional)</Form.Label>
+                <Form.Control
+                  value={editingCustomer.notes || ""}
+                  onChange={(e) => setEditingCustomer({ ...editingCustomer, notes: e.target.value })}
+                />
+                <div className="mt-2 d-flex gap-2">
+                  <Button size="sm" type="submit">Save</Button>
+                  <Button size="sm" type="button" variant="secondary" onClick={() => setEditingCustomer(null)}>Cancel</Button>
+                  <Button size="sm" type="button" variant="outline-danger" className="ms-auto" onClick={() => setShowDeleteConfirm(true)}>
+                    Delete Customer
+                  </Button>
+                </div>
+              </Form>
             </Card>
           )}
         </>
@@ -193,21 +208,56 @@ export default function CustomerSearch({ tab, setTab, selectedCustomer, onSelect
 
       {tab === "new" && (
         <Card className="p-2">
-          <Form.Label>Name <span className="text-danger">*</span></Form.Label>
-          <Form.Control value={newCust.name} onChange={(e) => setNewCust({ ...newCust, name: e.target.value })} />
-          <Form.Label className="mt-2">Phone (US only for now, 10 digits) <span className="text-danger">*</span></Form.Label>
-          <div className="d-flex gap-2">
-            <span className="input-group-text">+1</span>
-            <Form.Control placeholder="" value={newCust.phone} onChange={(e) => setNewCust({ ...newCust, phone: e.target.value })} />
-          </div>
-          <Form.Label className="mt-2">Email (optional)</Form.Label>
-          <Form.Control type="email" value={newCust.email} onChange={(e) => setNewCust({ ...newCust, email: e.target.value })} />
-          <Form.Label className="mt-2">Notes (optional)</Form.Label>
-          <Form.Control value={newCust.notes} onChange={(e) => setNewCust({ ...newCust, notes: e.target.value })} />
-          <div className="mt-2 d-flex gap-2">
-            <Button size="sm" onClick={saveNewCustomer}>Save Customer</Button>
-            <Button size="sm" variant="secondary" onClick={() => setTab("search")}>Cancel</Button>
-          </div>
+          <Form onSubmit={(e) => { e.preventDefault(); saveNewCustomer(); }}>
+            <Form.Label>Name <span className="text-danger">*</span></Form.Label>
+            <Form.Control
+              value={newCust.name}
+              isInvalid={!!newCustErrors.name}
+              onChange={(e) => {
+                setNewCust({ ...newCust, name: e.target.value });
+                if (e.target.value.trim()) setNewCustErrors((prev) => ({ ...prev, name: undefined }));
+              }}
+            />
+            <Form.Control.Feedback type="invalid">{newCustErrors.name}</Form.Control.Feedback>
+
+            <Form.Label className="mt-2">Phone (US only for now, 10 digits) <span className="text-danger">*</span></Form.Label>
+            <div className="d-flex gap-2">
+              <span className="input-group-text">+1</span>
+              <Form.Control
+                placeholder=""
+                value={newCust.phone}
+                isInvalid={!!newCustErrors.phone}
+                onChange={(e) => {
+                  setNewCust({ ...newCust, phone: e.target.value });
+                  if (isValidUsPhone(e.target.value.replace(/\D/g, ""))) {
+                    setNewCustErrors((prev) => ({ ...prev, phone: undefined }));
+                  }
+                }}
+              />
+            </div>
+            {newCustErrors.phone && <div className="text-danger small mt-1">{newCustErrors.phone}</div>}
+
+            <Form.Label className="mt-2">Email (optional)</Form.Label>
+            <Form.Control
+              type="email"
+              value={newCust.email}
+              isInvalid={!!newCustErrors.email}
+              onChange={(e) => {
+                setNewCust({ ...newCust, email: e.target.value });
+                if (!e.target.value || isValidEmail(e.target.value)) {
+                  setNewCustErrors((prev) => ({ ...prev, email: undefined }));
+                }
+              }}
+            />
+            <Form.Control.Feedback type="invalid">{newCustErrors.email}</Form.Control.Feedback>
+
+            <Form.Label className="mt-2">Notes (optional)</Form.Label>
+            <Form.Control value={newCust.notes} onChange={(e) => setNewCust({ ...newCust, notes: e.target.value })} />
+            <div className="mt-2 d-flex gap-2">
+              <Button size="sm" type="submit">Save Customer</Button>
+              <Button size="sm" type="button" variant="secondary" onClick={() => { setTab("search"); setNewCustErrors({}); }}>Cancel</Button>
+            </div>
+          </Form>
         </Card>
       )}
 

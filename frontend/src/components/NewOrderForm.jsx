@@ -16,6 +16,7 @@ export default function NewOrderForm({ services, products, racketModels, onNewRa
   const [duplicateOrder, setDuplicateOrder] = useState(null);
   const [ticketNumber, setTicketNumber] = useState("");
   const [ticketError, setTicketError] = useState(false);
+  const [showLineErrors, setShowLineErrors] = useState(false);
   const nextLineId = useRef(0);
 
   function selectCustomer(c) {
@@ -50,6 +51,28 @@ export default function NewOrderForm({ services, products, racketModels, onNewRa
   }, 0);
 
   const hasValidLine = lines.some((id) => lineData[id]?.serviceId);
+  const hasMissingService = lines.some((id) => !lineData[id]?.serviceId);
+  const hasMissingTension = lines.some(
+    (id) => lineData[id]?.serviceId && lineData[id]?.mode === "string" && !lineData[id]?.tension?.trim()
+  );
+  const hasMissingRacketModel = lines.some(
+    (id) => lineData[id]?.serviceId && lineData[id]?.mode && !lineData[id]?.racketModel?.trim()
+  );
+  const hasMissingProductType = lines.some((id) => {
+    const d = lineData[id];
+    if (!d?.serviceId || !d?.mode) return false;
+    if (!d.productSel) return true;
+    return d.productSel === "__other__" && !d.productOther?.trim();
+  });
+  const hasMissingQtyOrPrice = lines.some((id) => {
+    const d = lineData[id];
+    if (!d?.serviceId) return false;
+    const qtyBlank = d.quantityRaw === "" || d.quantityRaw === null || d.quantityRaw === undefined;
+    const priceBlank = d.priceRaw === "" || d.priceRaw === null || d.priceRaw === undefined;
+    return qtyBlank || priceBlank;
+  });
+  const hasMissingRequiredFields =
+    hasMissingService || hasMissingTension || hasMissingRacketModel || hasMissingProductType || hasMissingQtyOrPrice;
 
   async function resolveItemsForSubmit() {
     const items = [];
@@ -108,6 +131,7 @@ export default function NewOrderForm({ services, products, racketModels, onNewRa
       setDuplicateOrder(null);
       setTicketNumber("");
       setTicketError(false);
+      setShowLineErrors(false);
       onOrderCreated();
     } catch (e) {
       onToast(e.message);
@@ -116,96 +140,103 @@ export default function NewOrderForm({ services, products, racketModels, onNewRa
     }
   }
 
+  function attemptCreate() {
+    let blocked = false;
+    if (ticketNumber.trim() === "") {
+      setTicketError(true);
+      blocked = true;
+    }
+    if (hasMissingRequiredFields) {
+      setShowLineErrors(true);
+      blocked = true;
+    }
+    if (blocked) return;
+    setReviewing(true);
+  }
+
   return (
     <>
       <CustomerSearch tab={tab} setTab={setTab} selectedCustomer={customer} onSelect={selectCustomer} onClearSelection={clearSelection} onToast={onToast} />
 
       {customer && tab === "search" && (
         <div className="mt-3">
-          <Form.Group className="mb-3">
-            <Form.Label>Ticket number</Form.Label>
-            <Form.Control
-              type="text"
-              placeholder="e.g. 042"
-              value={ticketNumber}
-              onChange={(e) => {
-                setTicketNumber(e.target.value);
-                if (e.target.value.trim() !== "") setTicketError(false);
-              }}
-              isInvalid={ticketError}
-            />
-            <Form.Control.Feedback type="invalid">
-              Required -- enter the physical ticket number given to the customer.
-            </Form.Control.Feedback>
-          </Form.Group>
+          <Form onSubmit={(e) => { e.preventDefault(); attemptCreate(); }}>
+            <Form.Group className="mb-3">
+              <Form.Label>Ticket number</Form.Label>
+              <Form.Control
+                type="text"
+                value={ticketNumber}
+                onChange={(e) => {
+                  setTicketNumber(e.target.value);
+                  if (e.target.value.trim() !== "") setTicketError(false);
+                }}
+                isInvalid={ticketError}
+              />
+              <Form.Control.Feedback type="invalid">
+                Required -- enter the physical ticket number given to the customer.
+              </Form.Control.Feedback>
+            </Form.Group>
 
-          <Form.Label>Line items</Form.Label>
+            <Form.Label>Line items</Form.Label>
 
-          {lines.length === 0 ? (
-            // The bug this replaces: previously, deleting the only line
-            // item hid this whole section entirely (including the "+ Add
-            // line" button), leaving no way to add another. Now this
-            // empty state always offers a clear way back in.
-            <Button variant="outline-primary" className="w-100 py-3" onClick={addLine}>
-              + Add Line Item
-            </Button>
-          ) : (
-            <>
-              <AnimatePresence initial={false}>
-                {lines.map((id) => (
-                  <motion.div
-                    key={id}
-                    layout
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: "auto" }}
-                    exit={{ opacity: 0, height: 0 }}
-                    transition={{ duration: 0.2 }}
-                  >
-                    <LineItemRow
-                      services={services}
-                      products={products}
-                      racketModels={racketModels}
-                      onChange={(d) => updateLine(id, d)}
-                      onRemove={() => removeLine(id)}
-                      onNewRacketModel={onNewRacketModel}
-                    />
-                  </motion.div>
-                ))}
-              </AnimatePresence>
-              <Button size="sm" variant="secondary" onClick={addLine}>+ Add line</Button>
+            {lines.length === 0 ? (
+              // The bug this replaces: previously, deleting the only line
+              // item hid this whole section entirely (including the "+ Add
+              // line" button), leaving no way to add another. Now this
+              // empty state always offers a clear way back in.
+              <Button type="button" variant="outline-primary" className="w-100 py-3" onClick={addLine}>
+                + Add Line Item
+              </Button>
+            ) : (
+              <>
+                <AnimatePresence initial={false}>
+                  {lines.map((id) => (
+                    <motion.div
+                      key={id}
+                      layout
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: "auto" }}
+                      exit={{ opacity: 0, height: 0 }}
+                      transition={{ duration: 0.2 }}
+                    >
+                      <LineItemRow
+                        services={services}
+                        products={products}
+                        racketModels={racketModels}
+                        onChange={(d) => updateLine(id, d)}
+                        onRemove={() => removeLine(id)}
+                        onNewRacketModel={onNewRacketModel}
+                        showErrors={showLineErrors}
+                      />
+                    </motion.div>
+                  ))}
+                </AnimatePresence>
+                <Button type="button" size="sm" variant="secondary" onClick={addLine}>+ Add line</Button>
 
-              <hr />
-              <div className="d-flex justify-content-between align-items-center">
-                <strong>Total: ${total.toFixed(2)}</strong>
-                <Button
-                  disabled={!hasValidLine}
-                  onClick={() => {
-                    if (ticketNumber.trim() === "") {
-                      setTicketError(true);
-                      return;
-                    }
-                    setReviewing(true);
-                  }}
-                >
-                  Create Order
-                </Button>
+                <hr />
+                <div className="d-flex justify-content-between align-items-center">
+                  <strong>Total: ${total.toFixed(2)}</strong>
+                  <Button type="submit" disabled={!hasValidLine}>
+                    Create Order
+                  </Button>
+                </div>
+                {!hasValidLine && (
+                  <div className="text-muted small mt-1">Select a service on at least one line to continue.</div>
+                )}
+              </>
+            )}
+          </Form>
+
+          {reviewing && (
+            <Card className="mt-3 p-2 bg-mint border-dashed">
+              <strong>Confirm this order:</strong>
+              <div>{customer.name}</div>
+              <div>Total: ${total.toFixed(2)}</div>
+              <div className="mt-2 d-flex gap-2">
+                <Button size="sm" disabled={submitting} onClick={checkAndSubmit}>Confirm & Create</Button>
+                <Button size="sm" variant="secondary" onClick={() => setReviewing(false)}>Back, keep editing</Button>
               </div>
-              {!hasValidLine && (
-                <div className="text-muted small mt-1">Select a service on at least one line to continue.</div>
-              )}
-
-              {reviewing && (
-                <Card className="mt-3 p-2 bg-mint border-dashed">
-                  <strong>Confirm this order:</strong>
-                  <div>{customer.name}</div>
-                  <div>Total: ${total.toFixed(2)}</div>
-                  <div className="mt-2 d-flex gap-2">
-                    <Button size="sm" disabled={submitting} onClick={checkAndSubmit}>Confirm & Create</Button>
-                    <Button size="sm" variant="secondary" onClick={() => setReviewing(false)}>Back, keep editing</Button>
-                  </div>
-                </Card>
-              )}
-            </>
+            </Card>
           )}
         </div>
       )}

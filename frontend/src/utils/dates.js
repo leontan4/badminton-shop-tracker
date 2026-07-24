@@ -10,7 +10,8 @@ export function parseBackendDate(str) {
   return new Date(hasTimezone ? str : str + "Z");
 }
 
-// Formats elapsed time as e.g. "3h 12m ago" / "8m ago" / "just now".
+// Formats elapsed time as e.g. "3h 12m ago" / "8m ago" / "just now" / "2d 4h ago".
+// Trailing zero components are dropped for cleanliness -- "1h ago" not "1h 0m ago".
 export function timeAgo(dateStr) {
   const then = parseBackendDate(dateStr);
   if (!then) return "";
@@ -19,5 +20,8 @@ export function timeAgo(dateStr) {
   const hours = Math.floor(totalMinutes / 60);
   const minutes = totalMinutes % 60;
   if (hours === 0) return `${minutes}m ago`;
-  return `${hours}h ${minutes}m ago`;
+  if (hours < 24) return minutes === 0 ? `${hours}h ago` : `${hours}h ${minutes}m ago`;
+  const days = Math.floor(hours / 24);
+  const remainingHours = hours % 24;
+  return remainingHours === 0 ? `${days}d ago` : `${days}d ${remainingHours}h ago`;
 }
