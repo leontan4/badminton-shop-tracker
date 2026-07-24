@@ -51,7 +51,8 @@ export default function History({ onToast }) {
     ? statusFiltered.filter((o) => {
         const name = (o.customer?.name || "").toLowerCase();
         const phone = (o.customer?.phone || "").toLowerCase();
-        return name.includes(q) || phone.includes(q);
+        const ticket = (o.ticket_number || "").toLowerCase();
+        return name.includes(q) || phone.includes(q) || ticket.includes(q);
       })
     : statusFiltered;
 

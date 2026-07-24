@@ -14,6 +14,8 @@ export default function NewOrderForm({ services, products, racketModels, onNewRa
   const [reviewing, setReviewing] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [duplicateOrder, setDuplicateOrder] = useState(null);
+  const [ticketNumber, setTicketNumber] = useState("");
+  const [ticketError, setTicketError] = useState(false);
   const nextLineId = useRef(0);
 
   function selectCustomer(c) {
@@ -97,13 +99,15 @@ export default function NewOrderForm({ services, products, racketModels, onNewRa
       const items = await resolveItemsForSubmit();
       if (items.length === 0) { onToast("Add at least one line item"); return; }
 
-      await api.createOrder({ customer_id: customer.id, items });
+      await api.createOrder({ customer_id: customer.id, ticket_number: ticketNumber || null, items });
       onToast("Order created");
       setCustomer(null);
       setLines([]);
       setLineData({});
       setReviewing(false);
       setDuplicateOrder(null);
+      setTicketNumber("");
+      setTicketError(false);
       onOrderCreated();
     } catch (e) {
       onToast(e.message);
@@ -118,6 +122,23 @@ export default function NewOrderForm({ services, products, racketModels, onNewRa
 
       {customer && tab === "search" && (
         <div className="mt-3">
+          <Form.Group className="mb-3">
+            <Form.Label>Ticket number</Form.Label>
+            <Form.Control
+              type="text"
+              placeholder="e.g. 042"
+              value={ticketNumber}
+              onChange={(e) => {
+                setTicketNumber(e.target.value);
+                if (e.target.value.trim() !== "") setTicketError(false);
+              }}
+              isInvalid={ticketError}
+            />
+            <Form.Control.Feedback type="invalid">
+              Required -- enter the physical ticket number given to the customer.
+            </Form.Control.Feedback>
+          </Form.Group>
+
           <Form.Label>Line items</Form.Label>
 
           {lines.length === 0 ? (
@@ -156,7 +177,18 @@ export default function NewOrderForm({ services, products, racketModels, onNewRa
               <hr />
               <div className="d-flex justify-content-between align-items-center">
                 <strong>Total: ${total.toFixed(2)}</strong>
-                <Button disabled={!hasValidLine} onClick={() => setReviewing(true)}>Create Order</Button>
+                <Button
+                  disabled={!hasValidLine}
+                  onClick={() => {
+                    if (ticketNumber.trim() === "") {
+                      setTicketError(true);
+                      return;
+                    }
+                    setReviewing(true);
+                  }}
+                >
+                  Create Order
+                </Button>
               </div>
               {!hasValidLine && (
                 <div className="text-muted small mt-1">Select a service on at least one line to continue.</div>

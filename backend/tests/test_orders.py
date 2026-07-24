@@ -109,6 +109,7 @@ def test_order_item_racket_details(client, customer_id, service_id):
         "/orders",
         json={
             "customer_id": customer_id,
+            "ticket_number": "001",
             "items": [{
                 "service_id": service_id, "price_charged": 30.0,
                 "racket_model": "Yonex Astrox 100ZZ", "string_tension": "24 lbs",
@@ -128,9 +129,10 @@ def test_order_total_is_sum_of_line_items(client, customer_id, service_id):
         "/orders",
         json={
             "customer_id": customer_id,
+            "ticket_number": "001",
             "items": [
-                {"service_id": service_id, "price_charged": 30.0},
-                {"service_id": service_id, "price_charged": 5.0, "quantity": 2},
+                {"service_id": service_id, "string_tension": "24 lbs", "price_charged": 30.0},
+                {"service_id": service_id, "string_tension": "24 lbs", "price_charged": 5.0, "quantity": 2},
             ],
         },
     )
@@ -140,7 +142,7 @@ def test_order_total_is_sum_of_line_items(client, customer_id, service_id):
 def test_order_starts_dropped_off(client, customer_id, service_id):
     res = client.post(
         "/orders",
-        json={"customer_id": customer_id, "items": [{"service_id": service_id, "price_charged": 30.0}]},
+        json={"customer_id": customer_id, "ticket_number": "001", "items": [{"service_id": service_id, "string_tension": "24 lbs", "price_charged": 30.0}]},
     )
     assert res.json()["status"] == "dropped_off"
 
@@ -151,7 +153,7 @@ def test_order_starts_dropped_off(client, customer_id, service_id):
 def test_full_order_workflow(client, customer_id, service_id):
     order = client.post(
         "/orders",
-        json={"customer_id": customer_id, "items": [{"service_id": service_id, "price_charged": 30.0}]},
+        json={"customer_id": customer_id, "ticket_number": "001", "items": [{"service_id": service_id, "string_tension": "24 lbs", "price_charged": 30.0}]},
     ).json()
     order_id = order["id"]
 
@@ -169,7 +171,7 @@ def test_full_order_workflow(client, customer_id, service_id):
 def test_cannot_start_order_twice(client, customer_id, service_id):
     order_id = client.post(
         "/orders",
-        json={"customer_id": customer_id, "items": [{"service_id": service_id, "price_charged": 30.0}]},
+        json={"customer_id": customer_id, "ticket_number": "001", "items": [{"service_id": service_id, "string_tension": "24 lbs", "price_charged": 30.0}]},
     ).json()["id"]
     client.patch(f"/orders/{order_id}/start")
     res = client.patch(f"/orders/{order_id}/start")  # second time -- should fail
@@ -179,7 +181,7 @@ def test_cannot_start_order_twice(client, customer_id, service_id):
 def test_cancel_ready_returns_to_in_progress(client, customer_id, service_id):
     order_id = client.post(
         "/orders",
-        json={"customer_id": customer_id, "items": [{"service_id": service_id, "price_charged": 30.0}]},
+        json={"customer_id": customer_id, "ticket_number": "001", "items": [{"service_id": service_id, "string_tension": "24 lbs", "price_charged": 30.0}]},
     ).json()["id"]
     client.patch(f"/orders/{order_id}/start")
     client.patch(f"/orders/{order_id}/mark-ready")
@@ -191,7 +193,7 @@ def test_ready_at_only_set_once(client, customer_id, service_id):
     """Idempotency check: resending shouldn't reset the ready_at timestamp."""
     order_id = client.post(
         "/orders",
-        json={"customer_id": customer_id, "items": [{"service_id": service_id, "price_charged": 30.0}]},
+        json={"customer_id": customer_id, "ticket_number": "001", "items": [{"service_id": service_id, "string_tension": "24 lbs", "price_charged": 30.0}]},
     ).json()["id"]
     client.patch(f"/orders/{order_id}/start")
     client.patch(f"/orders/{order_id}/mark-ready")
@@ -205,7 +207,7 @@ def test_ready_at_only_set_once(client, customer_id, service_id):
 def test_revert_ready_back_to_in_progress(client, customer_id, service_id):
     order_id = client.post(
         "/orders",
-        json={"customer_id": customer_id, "items": [{"service_id": service_id, "price_charged": 30.0}]},
+        json={"customer_id": customer_id, "ticket_number": "001", "items": [{"service_id": service_id, "string_tension": "24 lbs", "price_charged": 30.0}]},
     ).json()["id"]
     client.patch(f"/orders/{order_id}/start")
     client.patch(f"/orders/{order_id}/mark-ready")
@@ -220,7 +222,7 @@ def test_revert_ready_back_to_in_progress(client, customer_id, service_id):
 def test_cannot_revert_order_not_ready(client, customer_id, service_id):
     order_id = client.post(
         "/orders",
-        json={"customer_id": customer_id, "items": [{"service_id": service_id, "price_charged": 30.0}]},
+        json={"customer_id": customer_id, "ticket_number": "001", "items": [{"service_id": service_id, "string_tension": "24 lbs", "price_charged": 30.0}]},
     ).json()["id"]
     res = client.patch(f"/orders/{order_id}/revert-ready")
     assert res.status_code == 400
@@ -246,7 +248,7 @@ def test_delete_customer_with_no_orders_succeeds(client, customer_id):
 def test_delete_customer_with_orders_blocked(client, customer_id, service_id):
     client.post(
         "/orders",
-        json={"customer_id": customer_id, "items": [{"service_id": service_id, "price_charged": 30.0}]},
+        json={"customer_id": customer_id, "ticket_number": "001", "items": [{"service_id": service_id, "string_tension": "24 lbs", "price_charged": 30.0}]},
     )
     res = client.delete(f"/customers/{customer_id}")
     assert res.status_code == 400
@@ -258,14 +260,14 @@ def test_delete_customer_with_orders_blocked(client, customer_id, service_id):
 def test_update_order_items_recomputes_total(client, customer_id, service_id):
     order_id = client.post(
         "/orders",
-        json={"customer_id": customer_id, "items": [{"service_id": service_id, "price_charged": 30.0}]},
+        json={"customer_id": customer_id, "ticket_number": "001", "items": [{"service_id": service_id, "string_tension": "24 lbs", "price_charged": 30.0}]},
     ).json()["id"]
 
     res = client.put(
         f"/orders/{order_id}/items",
         json=[
-            {"service_id": service_id, "price_charged": 30.0},
-            {"service_id": service_id, "price_charged": 8.0},
+            {"service_id": service_id, "string_tension": "24 lbs", "price_charged": 30.0},
+            {"service_id": service_id, "string_tension": "24 lbs", "price_charged": 8.0},
         ],
     )
     assert res.json()["total_price"] == 38.0
@@ -274,14 +276,14 @@ def test_update_order_items_recomputes_total(client, customer_id, service_id):
 def test_cannot_edit_items_after_ready(client, customer_id, service_id):
     order_id = client.post(
         "/orders",
-        json={"customer_id": customer_id, "items": [{"service_id": service_id, "price_charged": 30.0}]},
+        json={"customer_id": customer_id, "ticket_number": "001", "items": [{"service_id": service_id, "string_tension": "24 lbs", "price_charged": 30.0}]},
     ).json()["id"]
     client.patch(f"/orders/{order_id}/start")
     client.patch(f"/orders/{order_id}/mark-ready")
 
     res = client.put(
         f"/orders/{order_id}/items",
-        json=[{"service_id": service_id, "price_charged": 999.0}],
+        json=[{"service_id": service_id, "string_tension": "24 lbs", "price_charged": 999.0}],
     )
     assert res.status_code == 400
 
@@ -290,7 +292,7 @@ def test_analytics_summary_separates_created_and_completed(client, customer_id, 
     # One completed order
     o1 = client.post(
         "/orders",
-        json={"customer_id": customer_id, "items": [{"service_id": service_id, "price_charged": 30.0}]},
+        json={"customer_id": customer_id, "ticket_number": "001", "items": [{"service_id": service_id, "string_tension": "24 lbs", "price_charged": 30.0}]},
     ).json()["id"]
     client.patch(f"/orders/{o1}/start")
     client.patch(f"/orders/{o1}/mark-ready")
@@ -300,7 +302,7 @@ def test_analytics_summary_separates_created_and_completed(client, customer_id, 
     # One cancelled order -- should count toward created_total, not completed_total
     o2 = client.post(
         "/orders",
-        json={"customer_id": customer_id, "items": [{"service_id": service_id, "price_charged": 30.0}]},
+        json={"customer_id": customer_id, "ticket_number": "001", "items": [{"service_id": service_id, "string_tension": "24 lbs", "price_charged": 30.0}]},
     ).json()["id"]
     client.delete(f"/orders/{o2}")
 
@@ -323,7 +325,8 @@ def test_analytics_excludes_cancelled_order_items_from_top_lists(client, custome
         "/orders",
         json={
             "customer_id": customer_id,
-            "items": [{"service_id": service_id, "product_id": string_id, "price_charged": 30.0}],
+            "ticket_number": "001",
+            "items": [{"service_id": service_id, "product_id": string_id, "string_tension": "24 lbs", "price_charged": 30.0}],
         },
     ).json()["id"]
     client.delete(f"/orders/{order_id}")
@@ -336,7 +339,7 @@ def test_analytics_excludes_cancelled_order_items_from_top_lists(client, custome
 def test_uncancel_restores_to_dropped_off(client, customer_id, service_id):
     order_id = client.post(
         "/orders",
-        json={"customer_id": customer_id, "items": [{"service_id": service_id, "price_charged": 30.0}]},
+        json={"customer_id": customer_id, "ticket_number": "001", "items": [{"service_id": service_id, "string_tension": "24 lbs", "price_charged": 30.0}]},
     ).json()["id"]
     client.delete(f"/orders/{order_id}")
 
@@ -348,7 +351,7 @@ def test_uncancel_restores_to_dropped_off(client, customer_id, service_id):
 def test_cannot_uncancel_non_cancelled_order(client, customer_id, service_id):
     order_id = client.post(
         "/orders",
-        json={"customer_id": customer_id, "items": [{"service_id": service_id, "price_charged": 30.0}]},
+        json={"customer_id": customer_id, "ticket_number": "001", "items": [{"service_id": service_id, "string_tension": "24 lbs", "price_charged": 30.0}]},
     ).json()["id"]
     res = client.patch(f"/orders/{order_id}/uncancel")
     assert res.status_code == 400
@@ -361,7 +364,7 @@ def test_cancel_order_is_soft(client, customer_id, service_id):
     """Cancelling should mark status='cancelled', not remove the order."""
     order_id = client.post(
         "/orders",
-        json={"customer_id": customer_id, "items": [{"service_id": service_id, "price_charged": 30.0}]},
+        json={"customer_id": customer_id, "ticket_number": "001", "items": [{"service_id": service_id, "string_tension": "24 lbs", "price_charged": 30.0}]},
     ).json()["id"]
 
     res = client.delete(f"/orders/{order_id}")
@@ -377,8 +380,156 @@ def test_cancel_order_is_soft(client, customer_id, service_id):
 def test_cannot_cancel_already_cancelled_order(client, customer_id, service_id):
     order_id = client.post(
         "/orders",
-        json={"customer_id": customer_id, "items": [{"service_id": service_id, "price_charged": 30.0}]},
+        json={"customer_id": customer_id, "ticket_number": "001", "items": [{"service_id": service_id, "string_tension": "24 lbs", "price_charged": 30.0}]},
     ).json()["id"]
     client.delete(f"/orders/{order_id}")
     res = client.delete(f"/orders/{order_id}")
     assert res.status_code == 400
+
+
+# ---------------------------------------------------------------------------
+# Ticket number
+# ---------------------------------------------------------------------------
+def test_order_created_with_ticket_number(client, customer_id, service_id):
+    res = client.post(
+        "/orders",
+        json={
+            "customer_id": customer_id,
+            "ticket_number": "042",
+            "items": [{"service_id": service_id, "string_tension": "24 lbs", "price_charged": 30.0}],
+        },
+    )
+    assert res.json()["ticket_number"] == "042"
+
+
+def test_order_requires_ticket_number(client, customer_id, service_id):
+    """Ticket number is required -- the shop uses it to track physical orders."""
+    res = client.post(
+        "/orders",
+        json={"customer_id": customer_id, "items": [{"service_id": service_id, "string_tension": "24 lbs", "price_charged": 30.0}]},
+    )
+    assert res.status_code == 422
+
+
+def test_order_rejects_blank_ticket_number(client, customer_id, service_id):
+    res = client.post(
+        "/orders",
+        json={
+            "customer_id": customer_id,
+            "ticket_number": "",
+            "items": [{"service_id": service_id, "string_tension": "24 lbs", "price_charged": 30.0}],
+        },
+    )
+    assert res.status_code == 422
+
+
+def test_search_orders_by_ticket_number(client, customer_id, service_id):
+    client.post(
+        "/orders",
+        json={
+            "customer_id": customer_id,
+            "ticket_number": "042",
+            "items": [{"service_id": service_id, "string_tension": "24 lbs", "price_charged": 30.0}],
+        },
+    )
+    client.post(
+        "/orders",
+        json={
+            "customer_id": customer_id,
+            "ticket_number": "099",
+            "items": [{"service_id": service_id, "string_tension": "24 lbs", "price_charged": 30.0}],
+        },
+    )
+
+    res = client.get("/orders", params={"search": "042"})
+    results = res.json()
+    assert len(results) == 1
+    assert results[0]["ticket_number"] == "042"
+
+
+def test_search_orders_by_ticket_number_partial_match(client, customer_id, service_id):
+    """Search should work with a partial ticket number, same as name/phone search."""
+    client.post(
+        "/orders",
+        json={
+            "customer_id": customer_id,
+            "ticket_number": "1042",
+            "items": [{"service_id": service_id, "string_tension": "24 lbs", "price_charged": 30.0}],
+        },
+    )
+    res = client.get("/orders", params={"search": "042"})
+    assert len(res.json()) == 1
+
+
+def test_search_with_no_matching_ticket_number_returns_empty(client, customer_id, service_id):
+    client.post(
+        "/orders",
+        json={
+            "customer_id": customer_id,
+            "ticket_number": "042",
+            "items": [{"service_id": service_id, "string_tension": "24 lbs", "price_charged": 30.0}],
+        },
+    )
+    res = client.get("/orders", params={"search": "999"})
+    assert res.json() == []
+
+# ---------------------------------------------------------------------------
+# String tension requirement (Stringing service only)
+# ---------------------------------------------------------------------------
+def test_stringing_requires_tension(client, customer_id, service_id):
+    """service_id fixture is a "Stringing" service -- omitting tension should be rejected."""
+    res = client.post(
+        "/orders",
+        json={
+            "customer_id": customer_id,
+            "ticket_number": "001",
+            "items": [{"service_id": service_id, "price_charged": 30.0}],
+        },
+    )
+    assert res.status_code == 422
+
+
+def test_stringing_rejects_blank_tension(client, customer_id, service_id):
+    res = client.post(
+        "/orders",
+        json={
+            "customer_id": customer_id,
+            "ticket_number": "001",
+            "items": [{"service_id": service_id, "string_tension": "  ", "price_charged": 30.0}],
+        },
+    )
+    assert res.status_code == 422
+
+
+def test_non_stringing_service_does_not_require_tension(client, customer_id):
+    """A service that isn't "Stringing" (e.g. Grip Replacement) shouldn't need tension at all."""
+    grip_res = client.post("/services", json={"name": "Grip Replacement", "price": 10.0})
+    grip_id = grip_res.json()["id"]
+
+    res = client.post(
+        "/orders",
+        json={
+            "customer_id": customer_id,
+            "ticket_number": "001",
+            "items": [{"service_id": grip_id, "price_charged": 10.0}],
+        },
+    )
+    assert res.status_code == 200
+
+
+def test_update_items_also_requires_tension_for_stringing(client, customer_id, service_id):
+    """The tension requirement applies when editing items too, not just at creation."""
+    order_id = client.post(
+        "/orders",
+        json={
+            "customer_id": customer_id,
+            "ticket_number": "001",
+            "items": [{"service_id": service_id, "string_tension": "24 lbs", "price_charged": 30.0}],
+        },
+    ).json()["id"]
+
+    res = client.put(
+        f"/orders/{order_id}/items",
+        json=[{"service_id": service_id, "price_charged": 30.0}],  # no tension this time
+    )
+    assert res.status_code == 422

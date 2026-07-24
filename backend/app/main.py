@@ -12,7 +12,7 @@ load_dotenv()
 
 from fastapi import FastAPI, Depends, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, HTMLResponse
+from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from datetime import datetime
 from typing import List, Optional
@@ -40,31 +40,8 @@ app.add_middleware(
 
 # Paths reachable without being logged in. Everything else requires a valid
 # session cookie -- this replaces Caddy's basicauth as the actual login gate.
-PUBLIC_PATHS = {"/", "/auth/login", "/auth/logout", "/docs", "/openapi.json", "/redoc", "/privacy", "/terms"}
+PUBLIC_PATHS = {"/", "/auth/login", "/auth/logout", "/docs", "/openapi.json", "/redoc"}
 
-PRIVACY_HTML = """
-<h1>Privacy Policy</h1>
-<p>Badminton racket service tracker — order status notifications.</p>
-<p>We do not sell or share your phone number with third parties.
-It is used solely to send you a text message when your service order is ready for pickup.</p>
-<p>Message frequency: 1-2 messages per order. Message and data rates may apply.</p>
-<p>Reply STOP to opt out at any time, or HELP for support.</p>
-"""
-
-TERMS_HTML = """
-<h1>Terms and Conditions</h1>
-<p>By providing your phone number at drop-off, you consent to receive
-SMS notifications regarding your service order status. Message and data
-rates may apply. Reply STOP to unsubscribe, HELP for help.</p>
-"""
-
-@app.get("/privacy", response_class=HTMLResponse)
-def privacy_policy():
-    return PRIVACY_HTML
-
-@app.get("/terms", response_class=HTMLResponse)
-def terms_and_conditions():
-    return TERMS_HTML
 
 @app.middleware("http")
 async def require_login(request: Request, call_next):
@@ -229,16 +206,33 @@ def list_products(category: Optional[str] = None, db: Session = Depends(get_db))
 # ---------------------------------------------------------------------------
 # Orders + the status workflow
 # ---------------------------------------------------------------------------
+def _validate_items(items: List[schemas.OrderItemCreate], db: Session):
+    """
+    Cross-checks line items against the Service table -- can't be done in the
+    Pydantic schema alone since it needs to know whether the selected
+    service is actually "Stringing", not just that a tension value exists.
+    """
+    for item in items:
+        if not item.service_id:
+            continue
+        service = db.query(models.Service).get(item.service_id)
+        if service and service.name == "Stringing" and not (item.string_tension and item.string_tension.strip()):
+            raise HTTPException(422, "String tension is required for the Stringing service")
+
+
 @app.post("/orders", response_model=schemas.OrderOut)
 def create_order(order: schemas.OrderCreate, db: Session = Depends(get_db)):
     customer = db.query(models.Customer).get(order.customer_id)
     if not customer:
         raise HTTPException(404, "Customer not found")
 
+    _validate_items(order.items, db)
+
     total = sum(item.price_charged * item.quantity for item in order.items)
 
     db_order = models.Order(
         customer_id=order.customer_id,
+        ticket_number=order.ticket_number,
         notes=order.notes,
         total_price=total,
         status="dropped_off",
@@ -256,10 +250,12 @@ def create_order(order: schemas.OrderCreate, db: Session = Depends(get_db)):
 
 
 @app.get("/orders", response_model=List[schemas.OrderOut])
-def list_orders(status: Optional[str] = None, db: Session = Depends(get_db)):
+def list_orders(status: Optional[str] = None, search: Optional[str] = None, db: Session = Depends(get_db)):
     query = db.query(models.Order)
     if status:
         query = query.filter(models.Order.status == status)
+    if search:
+        query = query.filter(models.Order.ticket_number.ilike(f"%{search}%"))
     return query.order_by(models.Order.created_at.asc()).all()
 
 
@@ -400,6 +396,8 @@ def update_order_items(
         )
     if not items:
         raise HTTPException(400, "Order must have at least one line item")
+
+    _validate_items(items, db)
 
     for existing_item in list(order.items):
         db.delete(existing_item)

@@ -140,6 +140,7 @@ class OrderItemOut(OrderItemCreate):
 # ---------- Orders ----------
 class OrderCreate(BaseModel):
     customer_id: int
+    ticket_number: str = Field(min_length=1, description="Physical ticket number given to the customer at drop-off")
     notes: Optional[str] = None
     items: List[OrderItemCreate] = Field(min_length=1, description="An order needs at least one line item")
 
@@ -147,6 +148,7 @@ class OrderCreate(BaseModel):
 class OrderOut(BaseModel):
     id: int
     customer_id: int
+    ticket_number: Optional[str] = None
     status: str
     notification_status: str
     total_price: float

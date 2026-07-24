@@ -58,6 +58,19 @@ html {
 .badge-picked_up { background-color: #ddd; color: #888; }
 .badge-cancelled { background-color: #fbeaea; color: #a13b2f; }
 
+/* Ticket number -- the shop's own physical tracking number, given its own
+   visual weight (brand purple tint) since it matters more to staff at a
+   glance than the internal order id does. */
+.badge-ticket {
+  background-color: rgba(151, 84, 250, 0.12);
+  color: #9754fa;
+  font-weight: 600;
+  padding: 0.15rem 0.5rem;
+  border-radius: 0.35rem;
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+
 /* Button hover/press feedback -- a bit more life than Bootstrap's flat
    default color-darken-on-hover. */
 .btn {

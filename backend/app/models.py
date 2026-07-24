@@ -42,6 +42,10 @@ class Order(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     customer_id = Column(Integer, ForeignKey("customers.id"), nullable=False)
+    ticket_number = Column(String, nullable=True, index=True)
+    # Physical ticket/tag number given to the customer at drop-off, distinct from the internal `id`.
+    # Not unique by default -- confirm with the shop whether tickets ever repeat (e.g. reset daily)
+    # before adding a uniqueness constraint.
     status = Column(String, default="dropped_off")
     # dropped_off -> in_progress -> ready_pending_confirm -> ready -> picked_up
     notification_status = Column(String, default="not_sent")

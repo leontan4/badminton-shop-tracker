@@ -54,7 +54,11 @@ export default function OrderCard({ order, services, products, racketModels, onN
       <div className="d-flex justify-content-between align-items-baseline">
         <div className="flex-grow-1" style={{ minWidth: 0 }}>
           <div className="fw-semibold">{order.customer?.name || `Customer #${order.customer_id}`}</div>
-          <div className="text-muted small">Order #{order.id} · ${order.total_price.toFixed(2)} · {order.customer?.phone}</div>
+          <div className="d-flex align-items-center flex-wrap gap-2 mt-1">
+            {order.ticket_number && <span className="badge-ticket">#{order.ticket_number}</span>}
+            <span className="text-muted small">${order.total_price.toFixed(2)}</span>
+            <span className="text-muted small">{order.customer?.phone}</span>
+          </div>
         </div>
         <div className="d-flex align-items-center gap-2 flex-shrink-0 ms-2">
           <span className={`badge badge-${order.status}`}>{STATUS_LABEL[order.status]}</span>
