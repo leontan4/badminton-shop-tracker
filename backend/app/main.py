@@ -12,7 +12,7 @@ load_dotenv()
 
 from fastapi import FastAPI, Depends, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, HTMLResponse
 from sqlalchemy.orm import Session
 from datetime import datetime
 from typing import List, Optional
@@ -40,7 +40,7 @@ app.add_middleware(
 
 # Paths reachable without being logged in. Everything else requires a valid
 # session cookie -- this replaces Caddy's basicauth as the actual login gate.
-PUBLIC_PATHS = {"/", "/auth/login", "/auth/logout", "/docs", "/openapi.json", "/redoc"}
+PUBLIC_PATHS = {"/", "/auth/login", "/auth/logout", "/docs", "/openapi.json", "/redoc", "/privacy", "/terms", "/opt-in-process"}
 
 
 @app.middleware("http")
@@ -525,3 +525,67 @@ def analytics_summary(weeks: int = 8, db: Session = Depends(get_db)):
 @app.get("/")
 def root():
     return {"status": "ok", "docs": "/docs"}
+
+
+# ---------------------------------------------------------------------------
+# Public compliance pages -- required for Twilio A2P 10DLC Campaign
+# registration. These need to be reachable without login, since Twilio's
+# carrier reviewers visit them directly (hence PUBLIC_PATHS above).
+# ---------------------------------------------------------------------------
+PRIVACY_HTML = """
+<h1>Privacy Policy</h1>
+<p>Badminton racket service tracker -- order status notifications.</p>
+<p>We do not sell or share your phone number with third parties.
+It is used solely to send you a text message when your service order is ready for pickup.</p>
+<p>Message frequency: 1-2 messages per order. Message and data rates may apply.</p>
+<p>Reply STOP to opt out at any time, or HELP for support.</p>
+"""
+
+TERMS_HTML = """
+<h1>Terms and Conditions</h1>
+<p>By providing your phone number at drop-off, you consent to receive
+SMS notifications regarding your service order status. Message and data
+rates may apply. Reply STOP to unsubscribe, HELP for help.</p>
+"""
+
+OPT_IN_PROCESS_HTML = """
+<h1>SMS Opt-In Process -- Verbal Script</h1>
+<p>Badminton Gallery collects SMS consent verbally, in person, at the shop counter.
+No online, keyword, QR code, or paper-form opt-in exists for this messaging program.
+This page documents the exact verbal script used, as required for verification of
+verbal/agent-based opt-in flows.</p>
+
+<h2>The exact verbal exchange</h2>
+<p><strong>Staff:</strong> "We can text you when your racket is ready for pickup.
+We'll send one message per order. Message and data rates may apply.
+Reply HELP for help, or STOP to opt out at any time. Would you like this service -- yes or no?"</p>
+<p><strong>Customer:</strong> "Yes please."</p>
+<p><strong>Staff:</strong> "Great, we'll text you when it's ready."</p>
+<p>Only after the customer verbally responds "yes" does staff record the customer's
+mobile number in the shop's order tracking system. If the customer says "no," their
+number is not collected for texting purposes.</p>
+
+<h2>Program details</h2>
+<ul>
+  <li>Message frequency: approximately 1-2 messages per order.</li>
+  <li>Message and data rates may apply.</li>
+  <li>Reply STOP to opt out at any time, or HELP for support.</li>
+  <li>No promotional or marketing messages are ever sent -- order status updates only.</li>
+</ul>
+
+<p>Mobile Terms of Service are available at <a href="/terms">/terms</a> and our
+Privacy Statement can be found at <a href="/privacy">/privacy</a>. Mobile numbers
+are never shared with third parties.</p>
+"""
+
+@app.get("/privacy", response_class=HTMLResponse)
+def privacy_policy():
+    return PRIVACY_HTML
+
+@app.get("/terms", response_class=HTMLResponse)
+def terms_and_conditions():
+    return TERMS_HTML
+
+@app.get("/opt-in-process", response_class=HTMLResponse)
+def opt_in_process():
+    return OPT_IN_PROCESS_HTML
