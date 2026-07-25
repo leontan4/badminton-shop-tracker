@@ -27,6 +27,9 @@ function formatItemLine(i) {
 export default function OrderCard({ order, services, products, racketModels, onNewRacketModel, onRefresh, onToast, editing, isEditing, faded }) {
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [showRevertConfirm, setShowRevertConfirm] = useState(false);
+  const [editingTicket, setEditingTicket] = useState(false);
+  const [ticketDraft, setTicketDraft] = useState(order.ticket_number || "");
+  const [ticketError, setTicketError] = useState(false);
 
   async function doAction(action, method = "PATCH") {
     try {
@@ -47,6 +50,20 @@ export default function OrderCard({ order, services, products, racketModels, onN
     setTimeout(() => doAction(() => api.revertReady(order.id)), 200);
   }
 
+  async function saveTicketNumber() {
+    if (!ticketDraft.trim()) {
+      setTicketError(true);
+      return;
+    }
+    try {
+      await api.updateTicketNumber(order.id, ticketDraft.trim());
+      setEditingTicket(false);
+      onRefresh();
+    } catch (e) {
+      onToast(e.message);
+    }
+  }
+
   const canEditOrCancel = order.status === "dropped_off" || order.status === "in_progress";
 
   return (
@@ -55,19 +72,43 @@ export default function OrderCard({ order, services, products, racketModels, onN
         <div className="flex-grow-1" style={{ minWidth: 0 }}>
           <div className="fw-semibold">{order.customer?.name || `Customer #${order.customer_id}`}</div>
           <div className="d-flex align-items-center flex-wrap gap-2 mt-1">
-            {order.ticket_number && <span className="badge-ticket">#{order.ticket_number}</span>}
+            {editingTicket ? (
+              <div className="d-flex align-items-center gap-1">
+                <input
+                  autoFocus
+                  className={`form-control form-control-sm${ticketError ? " is-invalid" : ""}`}
+                  style={{ width: 100 }}
+                  value={ticketDraft}
+                  onChange={(e) => {
+                    setTicketDraft(e.target.value);
+                    if (e.target.value.trim()) setTicketError(false);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") saveTicketNumber();
+                    if (e.key === "Escape") setEditingTicket(false);
+                  }}
+                />
+                <Button size="sm" variant="outline-primary" onClick={saveTicketNumber}>Save</Button>
+                <Button size="sm" variant="outline-secondary" onClick={() => setEditingTicket(false)}>✕</Button>
+              </div>
+            ) : (
+              order.ticket_number && <span className="badge-ticket">#{order.ticket_number}</span>
+            )}
             <span className="text-muted small">${order.total_price.toFixed(2)}</span>
             <span className="text-muted small">{order.customer?.phone}</span>
           </div>
         </div>
         <div className="d-flex align-items-center gap-2 flex-shrink-0 ms-2">
           <span className={`badge badge-${order.status}`}>{STATUS_LABEL[order.status]}</span>
-          {!faded && canEditOrCancel && (
+          {!faded && (
             <Dropdown align="end">
               <Dropdown.Toggle as="span" bsPrefix="menu-dots" className="menu-dots-toggle">⋮</Dropdown.Toggle>
               <Dropdown.Menu>
-                <Dropdown.Item onClick={() => editing(isEditing ? null : order.id)}>Edit items</Dropdown.Item>
-                <Dropdown.Item className="text-danger" onClick={() => setShowCancelConfirm(true)}>Cancel order</Dropdown.Item>
+                <Dropdown.Item onClick={() => { setTicketDraft(order.ticket_number || ""); setTicketError(false); setEditingTicket(true); }}>
+                  Edit ticket #
+                </Dropdown.Item>
+                {canEditOrCancel && <Dropdown.Item onClick={() => editing(isEditing ? null : order.id)}>Edit items</Dropdown.Item>}
+                {canEditOrCancel && <Dropdown.Item className="text-danger" onClick={() => setShowCancelConfirm(true)}>Cancel order</Dropdown.Item>}
               </Dropdown.Menu>
             </Dropdown>
           )}

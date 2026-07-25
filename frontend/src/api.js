@@ -54,6 +54,8 @@ export const api = {
   createOrder: (body) => request(`/orders`, { method: "POST", body: JSON.stringify(body) }),
   updateOrderItems: (id, items) => request(`/orders/${id}/items`, { method: "PUT", body: JSON.stringify(items) }),
   startOrder: (id) => request(`/orders/${id}/start`, { method: "PATCH" }),
+  updateTicketNumber: (id, ticket_number) =>
+    request(`/orders/${id}/ticket-number`, { method: "PATCH", body: JSON.stringify({ ticket_number }) }),
   markReady: (id) => request(`/orders/${id}/mark-ready`, { method: "PATCH" }),
   cancelReady: (id) => request(`/orders/${id}/cancel-ready`, { method: "PATCH" }),
   sendNotification: (id) => request(`/orders/${id}/send-notification`, { method: "POST" }),

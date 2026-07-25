@@ -138,6 +138,10 @@ class OrderItemOut(OrderItemCreate):
 
 
 # ---------- Orders ----------
+class TicketNumberUpdate(BaseModel):
+    ticket_number: str = Field(min_length=1, description="Corrected ticket number")
+
+
 class OrderCreate(BaseModel):
     customer_id: int
     ticket_number: str = Field(min_length=1, description="Physical ticket number given to the customer at drop-off")

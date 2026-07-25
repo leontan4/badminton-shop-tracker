@@ -462,6 +462,20 @@ def uncancel_order(order_id: int, db: Session = Depends(get_db)):
     return order
 
 
+@app.patch("/orders/{order_id}/ticket-number", response_model=schemas.OrderOut)
+def update_ticket_number(order_id: int, update: schemas.TicketNumberUpdate, db: Session = Depends(get_db)):
+    """
+    Corrects a mistyped ticket number after the order's already been created.
+    Allowed regardless of order status -- a typo can be noticed at any point,
+    including after pickup while reviewing History.
+    """
+    order = _get_order_or_404(order_id, db)
+    order.ticket_number = update.ticket_number
+    db.commit()
+    db.refresh(order)
+    return order
+
+
 @app.get("/analytics/summary")
 def analytics_summary(weeks: int = 8, db: Session = Depends(get_db)):
     """
