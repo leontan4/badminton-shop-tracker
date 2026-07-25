@@ -4,7 +4,6 @@ import { AnimatePresence, motion } from "framer-motion";
 import { api } from "./api";
 import NewOrderForm from "./components/NewOrderForm";
 import OrderCard from "./components/OrderCard";
-import Summary from "./components/Summary";
 import History from "./components/History";
 import Login from "./components/Login";
 
@@ -71,7 +70,8 @@ export default function App() {
     if (!q) return true;
     const name = (o.customer?.name || "").toLowerCase();
     const phone = (o.customer?.phone || "").toLowerCase();
-    return name.includes(q) || phone.includes(q);
+    const ticket = (o.ticket_number || "").toLowerCase();
+    return name.includes(q) || phone.includes(q) || ticket.includes(q);
   };
 
   const openOrders = orders
@@ -84,7 +84,7 @@ export default function App() {
 
   const activeOrders = activeSubTab === "open" ? openOrders : readyOrders;
 
-  const VIEW_TITLES = { active: "Active Orders", summary: "Summary", history: "History" };
+  const VIEW_TITLES = { active: "Active Orders", history: "History" };
 
   if (authenticated === null) return null; // brief check on load, avoids flashing the app before we know
   if (authenticated === false) return <Login onSuccess={() => setAuthenticated(true)} />;
@@ -121,7 +121,6 @@ export default function App() {
                 <h2 className="h6 text-muted text-uppercase mb-0">{VIEW_TITLES[view]}</h2>
                 <div className="d-flex tab-fused">
                   <Button size="sm" variant={view === "active" ? "primary" : "outline-primary"} onClick={() => setView("active")}>Active</Button>
-                  <Button size="sm" variant={view === "summary" ? "primary" : "outline-primary"} onClick={() => setView("summary")}>Summary</Button>
                   <Button size="sm" variant={view === "history" ? "primary" : "outline-primary"} onClick={() => setView("history")}>History</Button>
                 </div>
               </div>
@@ -138,7 +137,7 @@ export default function App() {
                     <>
                       <Form.Control
                         className="mb-2"
-                        placeholder="Search active orders by customer name or phone..."
+                        placeholder="Search by customer name, phone, or ticket number..."
                         value={activeSearch}
                         onChange={(e) => setActiveSearch(e.target.value)}
                       />
@@ -184,7 +183,6 @@ export default function App() {
                     </>
                   )}
 
-                  {view === "summary" && <Summary />}
                   {view === "history" && <History onToast={showToast} services={services} products={products} racketModels={racketModels} />}
                 </motion.div>
               </AnimatePresence>

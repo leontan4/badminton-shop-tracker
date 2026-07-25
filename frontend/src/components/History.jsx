@@ -1,143 +1,201 @@
-import { useState, useEffect } from "react";
-import { ButtonGroup, Button, Form, Modal } from "react-bootstrap";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { Container, Row, Col, Card, Button, ButtonGroup, Toast, ToastContainer, Form } from "react-bootstrap";
 import { AnimatePresence, motion } from "framer-motion";
-import { api } from "../api";
-import { parseBackendDate } from "../utils/dates";
+import { api } from "./api";
+import NewOrderForm from "./components/NewOrderForm";
+import OrderCard from "./components/OrderCard";
+import History from "./components/History";
+import Login from "./components/Login";
 
-function formatItemLine(i) {
-  const parts = [`${i.quantity}x ${i.service_name || i.product_name || "item"}`];
-  if (i.service_name && i.product_name) parts.push(i.product_name);
-  if (i.racket_model) parts.push(i.racket_model);
-  if (i.string_tension) parts.push(i.string_tension);
-  return parts.join(" · ");
-}
+export default function App() {
+  const [authenticated, setAuthenticated] = useState(null); // null = checking, true/false once known
+  const [services, setServices] = useState([]);
+  const [products, setProducts] = useState([]);
+  const [racketModels, setRacketModels] = useState([]);
+  const [orders, setOrders] = useState([]);
+  const [view, setView] = useState("active");
+  const [activeSubTab, setActiveSubTab] = useState("open"); // "open" | "ready"
+  const [activeSearch, setActiveSearch] = useState("");
+  const [editingOrderId, setEditingOrderId] = useState(null);
+  const [toastMsg, setToastMsg] = useState(null);
+  const editingOrderIdRef = useRef(null);
+  editingOrderIdRef.current = editingOrderId;
 
-export default function History({ onToast }) {
-  const [orders, setOrders] = useState(null);
-  const [filter, setFilter] = useState("all"); // "all" | "picked_up" | "cancelled"
-  const [search, setSearch] = useState("");
-  const [restoreOrderId, setRestoreOrderId] = useState(null);
+  const showToast = useCallback((msg) => setToastMsg(msg), []);
 
-  useEffect(() => {
-    loadOrders();
+  // Note: this always actually refreshes when called. The "don't disturb
+  // an open edit panel" guard lives at the automatic-polling call site
+  // below, NOT here -- otherwise an explicit refresh triggered right after
+  // an action (e.g. clicking "Mark ready") would get silently skipped too.
+  const refreshOrders = useCallback(async () => {
+    const data = await api.listOrders();
+    setOrders(data);
   }, []);
 
-  function loadOrders() {
-    Promise.all([api.listOrders("picked_up"), api.listOrders("cancelled")]).then(([picked, cancelled]) => {
-      const combined = [...picked, ...cancelled].sort((a, b) => parseBackendDate(b.created_at) - parseBackendDate(a.created_at));
-      setOrders(combined);
-    });
+  const handleNewRacketModel = useCallback(async (name) => {
+    if (racketModels.some((r) => r.name === name)) return;
+    const created = await api.createProduct({ name, category: "racket_model", cost_to_shop: 0, price_to_customer: 0 });
+    setRacketModels((r) => [...r, created]);
+  }, [racketModels]);
+
+  useEffect(() => {
+    api.checkAuth()
+      .then(() => setAuthenticated(true))
+      .catch(() => setAuthenticated(false));
+  }, []);
+
+  useEffect(() => {
+    if (!authenticated) return;
+    (async () => {
+      const allProducts = await api.listProducts();
+      setProducts(allProducts.filter((p) => p.category !== "racket_model"));
+      setRacketModels(allProducts.filter((p) => p.category === "racket_model"));
+      setServices(await api.listServices());
+      await refreshOrders();
+    })();
+    const interval = setInterval(() => {
+      if (view === "active" && editingOrderIdRef.current === null) refreshOrders();
+    }, 5000);
+    return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view, authenticated]);
+
+  async function handleLogout() {
+    await api.logout();
+    setAuthenticated(false);
   }
 
-  async function confirmRestore() {
-    const id = restoreOrderId;
-    setRestoreOrderId(null);
-    try {
-      await api.uncancelOrder(id);
-      onToast?.("Order restored to Active (Dropped off)");
-      // Remove it from this list immediately -- it's no longer picked_up/cancelled
-      setOrders((prev) => prev.filter((o) => o.id !== id));
-    } catch (e) {
-      onToast?.(e.message);
-    }
-  }
+  const searchFilter = (o) => {
+    const q = activeSearch.trim().toLowerCase();
+    if (!q) return true;
+    const name = (o.customer?.name || "").toLowerCase();
+    const phone = (o.customer?.phone || "").toLowerCase();
+    const ticket = (o.ticket_number || "").toLowerCase();
+    return name.includes(q) || phone.includes(q) || ticket.includes(q);
+  };
 
-  if (!orders) return <div className="text-muted text-center py-4">Loading...</div>;
+  const openOrders = orders
+    .filter((o) => o.status === "dropped_off" || o.status === "in_progress")
+    .filter(searchFilter);
 
-  const statusFiltered = filter === "all" ? orders : orders.filter((o) => o.status === filter);
+  const readyOrders = orders
+    .filter((o) => o.status === "ready_pending_confirm" || o.status === "ready")
+    .filter(searchFilter);
 
-  const q = search.trim().toLowerCase();
-  const filtered = q
-    ? statusFiltered.filter((o) => {
-        const name = (o.customer?.name || "").toLowerCase();
-        const phone = (o.customer?.phone || "").toLowerCase();
-        const ticket = (o.ticket_number || "").toLowerCase();
-        return name.includes(q) || phone.includes(q) || ticket.includes(q);
-      })
-    : statusFiltered;
+  const activeOrders = activeSubTab === "open" ? openOrders : readyOrders;
 
-  const pickedCount = orders.filter((o) => o.status === "picked_up").length;
-  const cancelledCount = orders.filter((o) => o.status === "cancelled").length;
+  const VIEW_TITLES = { active: "Active Orders", history: "History" };
+
+  if (authenticated === null) return null; // brief check on load, avoids flashing the app before we know
+  if (authenticated === false) return <Login onSuccess={() => setAuthenticated(true)} />;
 
   return (
-    <div>
-      <Form.Control
-        className="mb-2"
-        placeholder="Search by customer name or phone..."
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-      />
-
-      <ButtonGroup size="sm" className="mb-3 tab-fused">
-        <Button variant={filter === "all" ? "primary" : "outline-primary"} onClick={() => setFilter("all")}>
-          All ({orders.length})
-        </Button>
-        <Button variant={filter === "picked_up" ? "primary" : "outline-primary"} onClick={() => setFilter("picked_up")}>
-          Fulfilled ({pickedCount})
-        </Button>
-        <Button variant={filter === "cancelled" ? "primary" : "outline-primary"} onClick={() => setFilter("cancelled")}>
-          Cancelled ({cancelledCount})
-        </Button>
-      </ButtonGroup>
-
-      {filtered.length === 0 ? (
-        <div className="text-muted text-center py-4">
-          {q
-            ? `No matching orders for "${search}"`
-            : filter === "all" ? "No completed or cancelled orders yet" : `No ${filter === "picked_up" ? "fulfilled" : "cancelled"} orders yet`}
+    <>
+      <div className="text-white py-3 px-4 d-flex justify-content-between align-items-center" style={{ background: "linear-gradient(90deg, #df94f7 0%, #9754fa 100%)" }}>
+        <h1 className="h5 mb-0">🏸 Badminton Gallery Service Stop</h1>
+        <div className="d-flex align-items-center gap-3">
+          <span className="small opacity-75">stringing &amp; service orders</span>
+          <Button size="sm" variant="outline-light" onClick={handleLogout}>Log out</Button>
         </div>
-      ) : (
-        <AnimatePresence initial={false}>
-          {filtered.map((o) => (
-            <motion.div
-              key={o.id}
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.96 }}
-              transition={{ duration: 0.2, ease: "easeOut" }}
-            >
-              <div className="card p-3 mb-3" style={{ opacity: 0.75 }}>
-                <div className="d-flex justify-content-between align-items-baseline">
-                  <div>
-                    <div className="fw-semibold">{o.customer?.name || `Customer #${o.customer_id}`}</div>
-                    <div className="text-muted small">
-                      Order #{o.id} · ${o.total_price.toFixed(2)} · {
-                        o.status === "cancelled"
-                          ? `cancelled on ${parseBackendDate(o.cancelled_at).toLocaleDateString()}`
-                          : `picked up on ${parseBackendDate(o.picked_up_at).toLocaleDateString()}`
-                      }
-                    </div>
-                  </div>
-                  <span className={`badge badge-${o.status}`}>{o.status === "cancelled" ? "Cancelled" : "Picked up"}</span>
-                </div>
-                <div className="text-muted small mt-1">
-                  {o.items.map((i, idx) => <div key={idx}>{formatItemLine(i)}</div>)}
-                </div>
-                {o.status === "cancelled" && (
-                  <div className="mt-2">
-                    <Button size="sm" variant="outline-primary" onClick={() => setRestoreOrderId(o.id)}>
-                      Restore to Active
-                    </Button>
-                  </div>
-                )}
-              </div>
-            </motion.div>
-          ))}
-        </AnimatePresence>
-      )}
+      </div>
 
-      <Modal show={restoreOrderId !== null} onHide={() => setRestoreOrderId(null)} centered size="sm">
-        <Modal.Body>
-          <p className="mb-3">
-            Restore this order to <strong>Active</strong>? It'll go back to "Dropped off" status
-            (since we don't track exactly which stage it was at before cancelling).
-          </p>
-          <div className="d-flex gap-2 justify-content-end">
-            <Button size="sm" variant="secondary" onClick={() => setRestoreOrderId(null)}>Keep cancelled</Button>
-            <Button size="sm" onClick={confirmRestore}>Restore</Button>
-          </div>
-        </Modal.Body>
-      </Modal>
-    </div>
+      <Container className="py-4" style={{ maxWidth: 1100 }}>
+        <Row className="g-4">
+          <Col md={5}>
+            <Card className="p-3">
+              <h2 className="h6 text-muted text-uppercase mb-3">New Order</h2>
+              <NewOrderForm
+                services={services}
+                products={products}
+                racketModels={racketModels}
+                onNewRacketModel={handleNewRacketModel}
+                onOrderCreated={refreshOrders}
+                onToast={showToast}
+              />
+            </Card>
+          </Col>
+
+          <Col md={7}>
+            <Card className="p-3">
+              <div className="d-flex justify-content-between align-items-center mb-3">
+                <h2 className="h6 text-muted text-uppercase mb-0">{VIEW_TITLES[view]}</h2>
+                <div className="d-flex tab-fused">
+                  <Button size="sm" variant={view === "active" ? "primary" : "outline-primary"} onClick={() => setView("active")}>Active</Button>
+                  <Button size="sm" variant={view === "history" ? "primary" : "outline-primary"} onClick={() => setView("history")}>History</Button>
+                </div>
+              </div>
+
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={view}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.15 }}
+                >
+                  {view === "active" && (
+                    <>
+                      <Form.Control
+                        className="mb-2"
+                        placeholder="Search by customer name, phone, or ticket number..."
+                        value={activeSearch}
+                        onChange={(e) => setActiveSearch(e.target.value)}
+                      />
+                      <ButtonGroup size="sm" className="mb-3 tab-fused">
+                        <Button variant={activeSubTab === "open" ? "primary" : "outline-primary"} onClick={() => setActiveSubTab("open")}>
+                          Open ({openOrders.length})
+                        </Button>
+                        <Button variant={activeSubTab === "ready" ? "primary" : "outline-primary"} onClick={() => setActiveSubTab("ready")}>
+                          Ready ({readyOrders.length})
+                        </Button>
+                      </ButtonGroup>
+                      {activeOrders.length === 0
+                        ? <div className="text-muted text-center py-4">
+                            {activeSearch
+                              ? `No matching ${activeSubTab} orders for "${activeSearch}"`
+                              : activeSubTab === "open" ? "No open orders" : "No orders ready for pickup"}
+                          </div>
+                        : (
+                          <AnimatePresence initial={false}>
+                            {activeOrders.map((o) => (
+                              <motion.div
+                                key={o.id}
+                                initial={{ opacity: 0, y: 12 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, scale: 0.96 }}
+                                transition={{ duration: 0.25, ease: "easeOut" }}
+                              >
+                                <OrderCard
+                                  order={o}
+                                  services={services}
+                                  products={products}
+                                  racketModels={racketModels}
+                                  onNewRacketModel={handleNewRacketModel}
+                                  onRefresh={refreshOrders}
+                                  onToast={showToast}
+                                  editing={setEditingOrderId}
+                                  isEditing={editingOrderId === o.id}
+                                />
+                              </motion.div>
+                            ))}
+                          </AnimatePresence>
+                        )}
+                    </>
+                  )}
+
+                  {view === "history" && <History onToast={showToast} services={services} products={products} racketModels={racketModels} />}
+                </motion.div>
+              </AnimatePresence>
+            </Card>
+          </Col>
+        </Row>
+      </Container>
+
+      <ToastContainer position="bottom-end" className="p-3">
+        <Toast show={!!toastMsg} onClose={() => setToastMsg(null)} delay={2500} autohide bg="dark">
+          <Toast.Body className="text-white">{toastMsg}</Toast.Body>
+        </Toast>
+      </ToastContainer>
+    </>
   );
 }
