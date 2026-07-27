@@ -548,23 +548,30 @@ def root():
 # ---------------------------------------------------------------------------
 PRIVACY_HTML = """
 <h1>Privacy Policy</h1>
-<p>Badminton racket service tracker -- order status notifications.</p>
-<p>We do not sell or share your phone number with third parties.
+<p>This SMS messaging program is operated by <strong>Leon Tan</strong>
+(Sole Proprietor).</p>
+<p>Leon Tan does not sell or share your phone number with third parties.
 It is used solely to send you a text message when your service order is ready for pickup.</p>
 <p>Message frequency: 1-2 messages per order. Message and data rates may apply.</p>
 <p>Reply STOP to opt out at any time, or HELP for support.</p>
+<p>Terms and Conditions: <a href="/terms">/terms</a>.</p>
 """
 
 TERMS_HTML = """
 <h1>Terms and Conditions</h1>
+<p>This SMS messaging program is operated by <strong>Leon Tan</strong>
+(Sole Proprietor).</p>
 <p>By providing your phone number at drop-off, you consent to receive
-SMS notifications regarding your service order status. Message and data
-rates may apply. Reply STOP to unsubscribe, HELP for help.</p>
+SMS notifications from Leon Tan regarding your service order status.
+Message and data rates may apply. Message frequency: approximately 1-2
+messages per order. Reply STOP to unsubscribe, HELP for help.</p>
+<p>Carriers are not liable for delayed or undelivered messages.</p>
+<p>Privacy Policy: <a href="/privacy">/privacy</a>.</p>
 """
 
 OPT_IN_PROCESS_HTML = """
 <h1>SMS Opt-In Process -- Verbal Script</h1>
-<p>Badminton Gallery collects SMS consent verbally, in person, at the shop counter.
+<p>Leon Tan (Sole Proprietor) collects SMS consent verbally, in person, at the shop counter.
 No online, keyword, QR code, or paper-form opt-in exists for this messaging program.
 This page documents the exact verbal script used, as required for verification of
 verbal/agent-based opt-in flows.</p>
