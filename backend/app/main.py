@@ -254,7 +254,11 @@ def create_order(order: schemas.OrderCreate, db: Session = Depends(get_db)):
 
     db.commit()
     db.refresh(db_order)
-    send_owner_email(f"New order #{db_order.id} created", db_order)
+    # Disabled for now -- staff create the order themselves, so a "new order
+    # created" email is just noise. "Ready for pickup" and "cancelled" emails
+    # (below, elsewhere in this file) stay on since those flag state changes
+    # staff might not be watching in real time.
+    # send_owner_email(f"New order #{db_order.id} created", db_order)
     return db_order
 
 

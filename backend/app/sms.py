@@ -18,7 +18,7 @@ def send_ready_sms(to_phone: str, customer_name: str, order_id: int) -> tuple[bo
     to_phone = normalize_phone_us(to_phone)
 
     message_body = (
-        f"Hi {customer_name}, your racket (order #{order_id}) is ready for "
+        f"Hi {customer_name}, your racket is ready for "
         f"pickup! See you soon."
     )
 
