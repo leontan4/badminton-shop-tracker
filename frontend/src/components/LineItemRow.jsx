@@ -87,6 +87,12 @@ export default function LineItemRow({
         </div>
         <Button type="button" size="sm" variant="danger" onClick={onRemove}>✕</Button>
       </div>
+      {/* Qty/Price hidden from UI for now -- quantity still defaults to 1 and
+          price still auto-fills from the selected service's price via the
+          effect above, so the actual values sent to the backend are
+          unaffected. No backend/schema change needed; safe to re-enable
+          later just by uncommenting this block. */}
+      {/*
       <Row className="g-2 align-items-center mt-1">
         <Col xs={6}>
           <InputGroup size="sm" hasValidation>
@@ -114,6 +120,7 @@ export default function LineItemRow({
           </InputGroup>
         </Col>
       </Row>
+      */}
 
       {mode && (
         <>
