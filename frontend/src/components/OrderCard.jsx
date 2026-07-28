@@ -22,6 +22,15 @@ function formatItemLine(i) {
   return parts.join(" · ");
 }
 
+// Matches the backend's send_ready_sms() logic exactly, so the preview
+// shown to staff is guaranteed to match the real message that gets sent.
+function firstName(fullName) {
+  const trimmed = (fullName || "").trim();
+  if (!trimmed) return fullName;
+  const first = trimmed.split(/\s+/)[0];
+  return first.charAt(0).toUpperCase() + first.slice(1).toLowerCase();
+}
+
 // Primary status-progression action stays inline on the card (used
 // constantly). Rarer actions (Edit items, Cancel order) live behind a
 // small "⋮" menu instead of always being visible.
@@ -130,7 +139,7 @@ export default function OrderCard({ order, services, products, racketModels, onN
         <div>
           <div className="mt-2 p-2 bg-mint border-dashed rounded small">
             Will text <strong>{order.customer?.phone}</strong>:<br />
-            <em>"Hi {order.customer?.name}, your racket is ready for pickup! See you soon."</em>
+            <em>"Hi {firstName(order.customer?.name)}, your racket is ready for pickup! See you soon."</em>
           </div>
         </div>
       </Collapse>
