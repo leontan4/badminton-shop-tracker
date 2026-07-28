@@ -130,7 +130,7 @@ export default function OrderCard({ order, services, products, racketModels, onN
         <div>
           <div className="mt-2 p-2 bg-mint border-dashed rounded small">
             Will text <strong>{order.customer?.phone}</strong>:<br />
-            <em>"Hi {order.customer?.name}, your racket (order #{order.id}) is ready for pickup! See you soon."</em>
+            <em>"Hi {order.customer?.name}, your racket is ready for pickup! See you soon."</em>
           </div>
         </div>
       </Collapse>

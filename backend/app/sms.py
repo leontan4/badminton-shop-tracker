@@ -6,7 +6,7 @@ TWILIO_AUTH_TOKEN = os.environ.get("TWILIO_AUTH_TOKEN")
 TWILIO_FROM_NUMBER = os.environ.get("TWILIO_FROM_NUMBER")
 
 
-def send_ready_sms(to_phone: str, customer_name: str, order_id: int) -> tuple[bool, str]:
+def send_ready_sms(to_phone: str, customer_name: str) -> tuple[bool, str]:
     """
     Sends the "your racket is ready" SMS.
     Returns (success: bool, message: str).
@@ -17,10 +17,13 @@ def send_ready_sms(to_phone: str, customer_name: str, order_id: int) -> tuple[bo
     """
     to_phone = normalize_phone_us(to_phone)
 
-    message_body = (
-        f"Hi {customer_name.capitalize()}, your racket is ready for "
-        f"pickup! See you soon."
-    )
+    # Use just the first name for a friendlier, shorter greeting -- and
+    # capitalize only that single word. Note: str.capitalize() on a
+    # multi-word string (e.g. "Leon Tan") would actually LOWERCASE the rest
+    # ("Leon tan"), which isn't what we want -- splitting first avoids that.
+    first_name = customer_name.strip().split()[0].capitalize() if customer_name.strip() else customer_name
+
+    message_body = f"Hi {first_name}, your racket is ready for pickup! See you soon."
 
     # TEMPORARY: trial accounts can only send pre-approved template text,
     # not custom messages. This is ONLY for confirming the send pipeline

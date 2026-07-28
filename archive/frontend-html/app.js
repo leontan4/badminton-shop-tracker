@@ -495,7 +495,7 @@ async function loadOrders() {
       ${o.status === "ready_pending_confirm" ? `
         <div class="confirm-box">
           Will text <strong>${o.customer?.phone}</strong>:<br>
-          <em>"Hi ${o.customer?.name}, your racket (order #${o.id}) is ready for pickup! See you soon."</em>
+          <em>"Hi ${o.customer?.name}, your racket is ready for pickup! See you soon."</em>
         </div>
       ` : ""}
 

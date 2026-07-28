@@ -331,7 +331,6 @@ def send_notification(order_id: int, db: Session = Depends(get_db)):
     success, detail = send_ready_sms(
         to_phone=order.customer.phone,
         customer_name=order.customer.name,
-        order_id=order.id,
     )
 
     order.notification_status = "sent" if success else "failed"
