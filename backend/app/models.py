@@ -76,6 +76,7 @@ class OrderItem(Base):
     product = relationship("Product")
     racket_model = Column(String, nullable=True)
     string_tension = Column(String, nullable=True)
+    color = Column(String, nullable=True)  # optional, freeform -- e.g. "White", "Black/Orange"
 
     @property
     def service_name(self):

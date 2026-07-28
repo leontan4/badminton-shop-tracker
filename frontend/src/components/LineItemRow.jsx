@@ -21,6 +21,7 @@ export default function LineItemRow({
   const [productSel, setProductSel] = useState(initial?.product_id ? String(initial.product_id) : "");
   const [productOther, setProductOther] = useState("");
   const [tension, setTension] = useState(initial?.string_tension ?? "");
+  const [color, setColor] = useState(initial?.color ?? "");
 
   const service = services.find((s) => s.id === Number(serviceId));
   const mode = service?.name === "Stringing" ? "string" : service?.name === "Grip Replacement" ? "grip" : null;
@@ -56,10 +57,11 @@ export default function LineItemRow({
       productSel: mode ? productSel : "",
       productOther: mode ? productOther : "",
       tension: mode === "string" ? tension : "",
+      color: mode ? color : "",
       mode,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [serviceId, quantity, price, racketModel, racketModelOther, productSel, productOther, tension]);
+  }, [serviceId, quantity, price, racketModel, racketModelOther, productSel, productOther, tension, color]);
 
   const catalog = products
     .filter((p) => p.category === mode)
@@ -201,6 +203,17 @@ export default function LineItemRow({
                 <Form.Control.Feedback type="invalid">Required for stringing</Form.Control.Feedback>
               </Col>
             )}
+          </Row>
+
+          <Row className="g-2 mt-1">
+            <Col xs={12} md={6}>
+              <Form.Control
+                size="sm"
+                placeholder="Color (optional)"
+                value={color}
+                onChange={(e) => setColor(e.target.value)}
+              />
+            </Col>
           </Row>
         </>
       )}

@@ -25,6 +25,7 @@ export default function EditItemsPanel({ order, open, services, products, racket
           productSel: item.product_id ? String(item.product_id) : "",
           productOther: "",
           tension: item.string_tension || "",
+          color: item.color || "",
           mode: null,
         };
       });
@@ -52,6 +53,7 @@ export default function EditItemsPanel({ order, open, services, products, racket
         if (d.mode) {
           if (d.racketModel) item.racket_model = d.racketModel;
           if (d.tension) item.string_tension = d.tension;
+          if (d.color) item.color = d.color;
           if (d.productSel === "__other__" && d.productOther) {
             const created = await api.createProduct({ name: d.productOther, category: d.mode, cost_to_shop: 0, price_to_customer: 0 });
             item.product_id = created.id;
@@ -87,6 +89,7 @@ export default function EditItemsPanel({ order, open, services, products, racket
                 racket_model: lineData[id].racketModel,
                 product_id: lineData[id].productSel ? Number(lineData[id].productSel) : null,
                 string_tension: lineData[id].tension,
+                color: lineData[id].color,
               } : undefined}
               onChange={(d) => updateLine(id, d)}
               onRemove={() => removeLine(id)}

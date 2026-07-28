@@ -7,6 +7,7 @@ import { parseBackendDate } from "../utils/dates";
 function formatItemLine(i) {
   const parts = [`${i.quantity}x ${i.service_name || i.product_name || "item"}`];
   if (i.service_name && i.product_name) parts.push(i.product_name);
+  if (i.color) parts.push(i.color);
   if (i.racket_model) parts.push(i.racket_model);
   if (i.string_tension) parts.push(i.string_tension);
   return parts.join(" · ");

@@ -83,6 +83,7 @@ export default function NewOrderForm({ services, products, racketModels, onNewRa
       if (d.mode) {
         if (d.racketModel) item.racket_model = d.racketModel;
         if (d.tension) item.string_tension = d.tension;
+        if (d.color) item.color = d.color;
         if (d.productSel === "__other__" && d.productOther) {
           const created = await api.createProduct({ name: d.productOther, category: d.mode, cost_to_shop: 0, price_to_customer: 0 });
           item.product_id = created.id;

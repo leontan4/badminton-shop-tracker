@@ -126,6 +126,7 @@ class OrderItemCreate(BaseModel):
     price_charged: float = Field(ge=0, description="Price can't be negative")
     racket_model: Optional[str] = None
     string_tension: Optional[str] = None
+    color: Optional[str] = None
 
 
 class OrderItemOut(OrderItemCreate):

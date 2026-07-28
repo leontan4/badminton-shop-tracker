@@ -24,15 +24,15 @@ if not db.query(models.Product).filter(models.Product.category.in_(["string", "g
     products = [
         # Strings -- price_to_customer is $0 since it's bundled into the
         # $30 stringing price, but we still track which specific string
-        # (model + color) was used, for inventory/cost/history purposes.
-        dict(name="Yonex BG65 (White)", category="string", cost_to_shop=6.0, price_to_customer=0.0),
-        dict(name="Yonex BG65 (Black)", category="string", cost_to_shop=6.0, price_to_customer=0.0),
-        dict(name="Yonex BG80 (White)", category="string", cost_to_shop=8.0, price_to_customer=0.0),
-        dict(name="Yonex BG80 (Yellow)", category="string", cost_to_shop=8.0, price_to_customer=0.0),
-        dict(name="Yonex Aerobite (White/Orange)", category="string", cost_to_shop=12.0, price_to_customer=0.0),
-        dict(name="Yonex Exbolt 63 (White)", category="string", cost_to_shop=13.0, price_to_customer=0.0),
-        dict(name="Yonex Exbolt 65 (Black)", category="string", cost_to_shop=13.0, price_to_customer=0.0),
-        dict(name="Babolat RPM Blast (Black)", category="string", cost_to_shop=9.0, price_to_customer=0.0),
+        # (model) was used, for inventory/cost/history purposes. Color is
+        # now a separate optional field on the order item, not baked into
+        # the product name -- these entries are per-model, not per-color.
+        dict(name="Yonex BG65", category="string", cost_to_shop=6.0, price_to_customer=0.0),
+        dict(name="Yonex BG80", category="string", cost_to_shop=8.0, price_to_customer=0.0),
+        dict(name="Yonex Aerobite", category="string", cost_to_shop=12.0, price_to_customer=0.0),
+        dict(name="Yonex Exbolt 63", category="string", cost_to_shop=13.0, price_to_customer=0.0),
+        dict(name="Yonex Exbolt 65", category="string", cost_to_shop=13.0, price_to_customer=0.0),
+        dict(name="Babolat RPM Blast", category="string", cost_to_shop=9.0, price_to_customer=0.0),
 
         # Grips -- these DO have a real customer price, since grip
         # replacement isn't bundled the way string is.
